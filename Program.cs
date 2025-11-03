@@ -10,8 +10,13 @@ public class Program
         var builder = WebApplication.CreateBuilder(args);
         var app = builder.Build();
 
+        var Varasto = new VarastoDB();
+
         app.MapGet("/", () => "Hello World!");
-        app.MapGet("/tuote", () => Varasto.ListaaTuotteet());
+        app.MapGet("/tuote", () => 
+        {
+            return Results.Ok(Varasto.ListaaTuotteet());
+        });
 
         app.Run();
         app.MapGet("/etsituotteet", (string column, string value, VarastoDB db) =>
