@@ -1,3 +1,5 @@
+using TietokantaViikko;
+
 namespace TietokantaAPI;
 
 public class Program
@@ -8,6 +10,7 @@ public class Program
         var app = builder.Build();
 
         app.MapGet("/", () => "Hello World!");
+        app.MapGet("/tuote", () => Varasto.ListaaTuotteet());
 
         app.Run();
     }
