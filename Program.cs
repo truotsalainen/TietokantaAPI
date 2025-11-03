@@ -1,3 +1,4 @@
+using System.Data.Common;
 using TietokantaViikko;
 
 namespace TietokantaAPI;
@@ -18,5 +19,10 @@ public class Program
         });
 
         app.Run();
+        app.MapGet("/etsituotteet", (string column, string value, VarastoDB db) =>
+        {
+            var results = db.EtsiTuotteet(column, value);
+            return Results.Ok(results);
+        });
     }
 }
