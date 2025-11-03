@@ -8,73 +8,76 @@ public record Tuote(string tag, string nimi, int maara, string kunto);
 public class VarastoDB
 {
     private static string _connectionString = "Data Source=VarastoDB.db";
-    private int? currentVarastoId = null; // Valittu varasto
+    private int? currentVarastoId = null; // Valittu varasto.
 
     public VarastoDB()
     {
 
     }
 
-    // Lisää tuote tietokantaan.
+    // Lisää tuote varastoon.
     public void LisaaTuote(string tag, string nimi, int maara, string kunto)
     {
         if (currentVarastoId == null)
         {
-            Console.WriteLine("Virhe: Et ole valinnut varastoa. Lataa varasto ensin.");
-            return;
+            throw new InvalidOperationException("Et ole valinnut varastoa. Lataa varasto ensin. ");
         }
 
         using (var connection = new SqliteConnection(_connectionString))
         {
             connection.Open();
 
-            // Check if item with same name, tag, and kunto exists in this varasto
-            var checkCmd = connection.CreateCommand();
-            checkCmd.CommandText = @"
-                SELECT Id, Maara 
-                FROM Tuotteet 
-                WHERE Tag = $Tag AND Nimi = $Nimi AND Kunto = $Kunto AND VarastoId = $VarastoId";
-            checkCmd.Parameters.AddWithValue("$Tag", tag);
-            checkCmd.Parameters.AddWithValue("$Nimi", nimi);
-            checkCmd.Parameters.AddWithValue("$Kunto", kunto);
-            checkCmd.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
-
-            using (var reader = checkCmd.ExecuteReader())
+            // Etsi onko tuote jo olemassa tässä varastossa.
+            using (var checkCmd = connection.CreateCommand())
             {
-                if (reader.Read())
+                checkCmd.CommandText = @"
+                SELECT Id, Maara
+                FROM Tuotteet
+                WHERE Tag = $Tag AND Nimi = $Nimi AND Kunto = $Kunto AND VarastoId = $VarastoId
+                LIMIT 1;";
+                checkCmd.Parameters.AddWithValue("$Tag", tag);
+                checkCmd.Parameters.AddWithValue("$Nimi", nimi);
+                checkCmd.Parameters.AddWithValue("$Kunto", kunto);
+                checkCmd.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
+
+                using (var reader = checkCmd.ExecuteReader())
                 {
-                    // Item exists → update quantity
-                    int id = reader.GetInt32(0);
-                    int currentMaara = reader.GetInt32(1);
+                    if (reader.Read())
+                    {
+                        int id = reader.GetInt32(0);
+                        int oldMaara = reader.GetInt32(1);
+                        int newMaara = oldMaara + maara;
 
-                    var updateCmd = connection.CreateCommand();
-                    updateCmd.CommandText = "UPDATE Tuotteet SET Maara = $NewMaara WHERE Id = $Id";
-                    updateCmd.Parameters.AddWithValue("$NewMaara", currentMaara + maara);
-                    updateCmd.Parameters.AddWithValue("$Id", id);
-                    updateCmd.ExecuteNonQuery();
+                        reader.Close();
 
-                    Console.WriteLine($"\nTuotteen määrä päivitetty: {currentMaara} → {currentMaara + maara}");
-                    return;
+                        using (var updateCmd = connection.CreateCommand())
+                        {
+                            updateCmd.CommandText = "UPDATE Tuotteet SET Maara = $Maara WHERE Id = $Id";
+                            updateCmd.Parameters.AddWithValue("$Maara", newMaara);
+                            updateCmd.Parameters.AddWithValue("$Id", id);
+                            updateCmd.ExecuteNonQuery();
+                        }
+
+                        return;
+                    }
                 }
             }
 
-            // Item not found → insert new row
-            var insertItemCmd = connection.CreateCommand();
-            insertItemCmd.CommandText = @"
+            // Lisää uusi tuote.
+            using (var insertCmd = connection.CreateCommand())
+            {
+                insertCmd.CommandText = @"
                 INSERT INTO Tuotteet (Tag, Nimi, Maara, Kunto, VarastoId)
-                VALUES ($Tag, $Nimi, $Maara, $Kunto, $VarastoId)";
-            insertItemCmd.Parameters.AddWithValue("$Tag", tag);
-            insertItemCmd.Parameters.AddWithValue("$Nimi", nimi);
-            insertItemCmd.Parameters.AddWithValue("$Maara", maara);
-            insertItemCmd.Parameters.AddWithValue("$Kunto", kunto);
-            insertItemCmd.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
-            insertItemCmd.ExecuteNonQuery();
-
-            Console.WriteLine("Uusi tuote lisätty varastoon.");
+                VALUES ($Tag, $Nimi, $Maara, $Kunto, $VarastoId);";
+                insertCmd.Parameters.AddWithValue("$Tag", tag);
+                insertCmd.Parameters.AddWithValue("$Nimi", nimi);
+                insertCmd.Parameters.AddWithValue("$Maara", maara);
+                insertCmd.Parameters.AddWithValue("$Kunto", kunto);
+                insertCmd.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
+                insertCmd.ExecuteNonQuery();
+            }
         }
     }
-
-
 
     // Poista tuote tietokannasta.
     public void PoistaTuote(string nimi)
