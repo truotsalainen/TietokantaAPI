@@ -337,10 +337,10 @@ public class VarastoDB
             using (var createVarasto = connection.CreateCommand())
             {
                 createVarasto.CommandText = @"
-            CREATE TABLE IF NOT EXISTS Varastot(
-                Id INTEGER PRIMARY KEY,
-                Nimi TEXT
-            );";
+                    CREATE TABLE IF NOT EXISTS Varastot(
+                        Id INTEGER PRIMARY KEY,
+                        Nimi TEXT
+                    );";
                 createVarasto.ExecuteNonQuery();
             }
 
@@ -348,15 +348,15 @@ public class VarastoDB
             using (var createTuotteetTableCmd = connection.CreateCommand())
             {
                 createTuotteetTableCmd.CommandText = @"
-            CREATE TABLE IF NOT EXISTS Tuotteet (
-                Id INTEGER PRIMARY KEY,
-                Tag TEXT,
-                Nimi TEXT,
-                Maara INTEGER,
-                Kunto TEXT,
-                VarastoId INTEGER,
-                FOREIGN KEY(VarastoId) REFERENCES Varastot(Id) ON DELETE CASCADE
-            );";
+                    CREATE TABLE IF NOT EXISTS Tuotteet (
+                        Id INTEGER PRIMARY KEY,
+                        Tag TEXT,
+                        Nimi TEXT,
+                        Maara INTEGER,
+                        Kunto TEXT,
+                        VarastoId INTEGER,
+                        FOREIGN KEY(VarastoId) REFERENCES Varastot(Id) ON DELETE CASCADE
+                    );";
                 createTuotteetTableCmd.ExecuteNonQuery();
             }
 
@@ -367,14 +367,14 @@ public class VarastoDB
                 addVarasto.Parameters.AddWithValue("@Nimi", nimi);
                 long uusiVarastoId = (long)addVarasto.ExecuteScalar();
 
-                // Asetetaan uusi varasto automaattisesti valituksi
-                currentVarastoId = (int)uusiVarastoId;
+                currentVarastoId = (int)uusiVarastoId; // asetetaan aktiiviseksi
                 Console.WriteLine($"Uusi varasto '{nimi}' luotu ja valittu. ID = {currentVarastoId}");
 
                 return currentVarastoId.Value;
             }
         }
     }
+
 
     public List<VarastoTiedot> HaeVarastot()
     {
@@ -397,46 +397,52 @@ public class VarastoDB
         }
     }
 
+
     public bool PoistaVarasto(int varastoId)
     {
-         using (var connection = new SqliteConnection(_connectionString))
+        using (var connection = new SqliteConnection(_connectionString))
+        {
+            connection.Open();
+
+            // Tarkistetaan, että varasto on olemassa
+            var checkCmd = connection.CreateCommand();
+            checkCmd.CommandText = "SELECT COUNT(*) FROM Varastot WHERE Id = $Id";
+            checkCmd.Parameters.AddWithValue("$Id", varastoId);
+            int count = Convert.ToInt32(checkCmd.ExecuteScalar());
+
+            if (count == 0)
+            {
+                Console.WriteLine("Varastoa ei löytynyt.");
+                return false;
+            }
+
+            // Poistetaan varasto (Tuotteet poistuvat automaattisesti FOREIGN KEY CASCADE:n ansiosta)
+            var deleteCmd = connection.CreateCommand();
+            deleteCmd.CommandText = "DELETE FROM Varastot WHERE Id = $Id";
+            deleteCmd.Parameters.AddWithValue("$Id", varastoId);
+            int rowsAffected = deleteCmd.ExecuteNonQuery();
+
+            if (rowsAffected > 0)
+            {
+                if (currentVarastoId == varastoId)
+                    currentVarastoId = null; // nollataan aktiivinen varasto
+
+                Console.WriteLine($"Varasto {varastoId} poistettu onnistuneesti.");
+                return true;
+            }
+            else
+            {
+                Console.WriteLine("Varaston poisto epäonnistui.");
+                return false;
+            }
+        }
+    }
+
+    // (Valinnaisesti: setter aktiiviselle varastolle)
+    public void AsetaAktiivinenVarasto(int varastoId)
     {
-        connection.Open();
-
-        // Tarkistetaan, että varasto on olemassa
-        var checkCmd = connection.CreateCommand();
-        checkCmd.CommandText = "SELECT COUNT(*) FROM Varastot WHERE Id = $Id";
-        checkCmd.Parameters.AddWithValue("$Id", varastoId);
-        int count = Convert.ToInt32(checkCmd.ExecuteScalar());
-
-        if (count == 0)
-        {
-            Console.WriteLine("Varastoa ei löytynyt.");
-            return false;
-        }
-
-        // Poistetaan varasto (Tuotteet poistuvat automaattisesti FOREIGN KEY CASCADE:n ansiosta)
-        var deleteCmd = connection.CreateCommand();
-        deleteCmd.CommandText = "DELETE FROM Varastot WHERE Id = $Id";
-        deleteCmd.Parameters.AddWithValue("$Id", varastoId);
-        int rowsAffected = deleteCmd.ExecuteNonQuery();
-
-        if (rowsAffected > 0)
-        {
-            // Jos poistettu varasto oli valittu, nollataan currentVarastoId
-            if (currentVarastoId == varastoId)
-                currentVarastoId = null;
-
-            Console.WriteLine($"Varasto {varastoId} poistettu onnistuneesti.");
-            return true;
-        }
-        else
-        {
-            Console.WriteLine("Varaston poisto epäonnistui.");
-            return false;
-        }
+        currentVarastoId = varastoId;
     }
-    }
-
-
 }
+
+
