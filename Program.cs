@@ -13,16 +13,24 @@ public class Program
         var Varasto = new VarastoDB();
 
         app.MapGet("/", () => "Hello World!");
-        app.MapGet("/tuote", () => 
+        app.MapGet("/tuote", () =>
         {
             return Results.Ok(Varasto.ListaaTuotteet());
         });
 
-        app.Run();
+        // Lisää uusi tuote.
+        app.MapPost("/tuote", (Tuote tuote) =>
+        {
+            Varasto.LisaaTuote(tuote.tag, tuote.nimi, tuote.maara, tuote.kunto);
+            return Results.Ok($"Tuote '{tuote.nimi}' lisätty!");
+        });
+
         app.MapGet("/etsituotteet", (string column, string value, VarastoDB db) =>
         {
             var results = db.EtsiTuotteet(column, value);
             return Results.Ok(results);
         });
+
+        app.Run();
     }
 }
