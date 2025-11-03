@@ -14,7 +14,7 @@ public class Program
         app.MapGet("/", () => "Hello World!");
         app.MapGet("/tuote", () => 
         {
-            return Varasto.ListaaTuotteet();
+            return Results.Ok(Varasto.ListaaTuotteet());
         });
 
         app.Run();
