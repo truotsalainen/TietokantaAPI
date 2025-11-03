@@ -1,11 +1,4 @@
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
 using System.Data.Common;
->>>>>>> Stashed changes
-=======
-using System.Data.Common;
->>>>>>> Stashed changes
 using TietokantaViikko;
 
 namespace TietokantaAPI;
