@@ -1,3 +1,7 @@
+<<<<<<< Updated upstream
+=======
+using System.Data.Common;
+>>>>>>> Stashed changes
 using TietokantaViikko;
 
 namespace TietokantaAPI;
@@ -13,5 +17,10 @@ public class Program
         app.MapGet("/tuote", () => Varasto.ListaaTuotteet());
 
         app.Run();
+        app.MapGet("/etsituotteet", (string column, string value, VarastoDB db) =>
+        {
+            var results = db.EtsiTuotteet(column, value);
+            return Results.Ok(results);
+        });
     }
 }
