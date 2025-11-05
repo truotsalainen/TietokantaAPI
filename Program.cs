@@ -12,7 +12,38 @@ public class Program
 
         var Varasto = new VarastoDB();
 
-        app.MapGet("/", () => "Hello World!");
+        // Listaa kaikki varastot   GET http://localhost:5000/varastot
+        app.MapGet("/varastot", () =>
+        {
+            var varastot = Varasto.HaeVarastot();
+            return Results.Ok(varastot);
+        });
+
+        // Luo uusi varasto ja aseta se aktiiviseksi POST http://localhost:5000/varasto BODY: JSON
+        app.MapPost("/varasto", (string nimi) =>
+        {
+            int id = Varasto.LuoVarasto(nimi);
+            return Results.Ok(new { Id = id, Nimi = nimi });
+        });
+
+        // Poista varasto       DEL http://localhost:5000/varasto/3
+        app.MapDelete("/varasto/{id}", (int id) =>
+        {
+            bool success = Varasto.PoistaVarasto(id);
+            if (success)
+                return Results.Ok($"Varasto {id} poistettu onnistuneesti.");
+            else
+                return Results.NotFound($"Varastoa {id} ei löytynyt.");
+        });
+
+         // Vaihda aktiivista varastoa (valinnainen endpoint)
+        app.MapPut("/varasto/aktiivinen/{id}", (int id) =>
+        {
+            Varasto.AsetaAktiivinenVarasto(id);
+            return Results.Ok($"Varasto {id} asetettu aktiiviseksi.");
+        });
+
+
         app.MapGet("/tuote", () =>
         {
             return Results.Ok(Varasto.ListaaTuotteet());
