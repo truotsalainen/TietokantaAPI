@@ -78,6 +78,13 @@ public class Program
             return Results.Ok(results);
         });
 
+        // Muokkaa tuotetta.
+
+        app.MapPut("/tuote/{id}", (int id, Tuote muokattuTuote) =>
+        {
+            Varasto.MuokkaaTuote(id, muokattuTuote);
+            return Results.Ok($"Tuote {id} päivitetty!");
+        });
 
 
         app.Run();
