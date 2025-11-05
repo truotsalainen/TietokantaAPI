@@ -1,12 +1,14 @@
 using System.Data.Common;
 using TietokantaViikko;
-
+using Microsoft.AspNetCore.Mvc;
 namespace TietokantaAPI;
 
 public class Program
 {
+    public record VarastoNimiRequest(string nimi);
     public static void Main(string[] args)
     {
+        
         var builder = WebApplication.CreateBuilder(args);
         var app = builder.Build();
 
@@ -20,11 +22,14 @@ public class Program
         });
 
         // Luo uusi varasto ja aseta se aktiiviseksi POST http://localhost:5000/varasto BODY: JSON
-        app.MapPost("/varasto", (string nimi) =>
+       
+        app.MapPost("/varasto", ([FromBody] VarastoNimiRequest request) =>
         {
-            int id = Varasto.LuoVarasto(nimi);
-            return Results.Ok(new { Id = id, Nimi = nimi });
+            int id = Varasto.LuoVarasto(request.nimi);
+            return Results.Ok(new { Id = id, Nimi = request.nimi });
         });
+
+
 
         // Poista varasto       DEL http://localhost:5000/varasto/3
         app.MapDelete("/varasto/{id}", (int id) =>
@@ -36,11 +41,22 @@ public class Program
                 return Results.NotFound($"Varastoa {id} ei löytynyt.");
         });
 
-         // Vaihda aktiivista varastoa (valinnainen endpoint)
+        // Vaihda aktiivista varastoa  http://localhost:5000/varasto/aktiivinen/1
         app.MapPut("/varasto/aktiivinen/{id}", (int id) =>
         {
             Varasto.AsetaAktiivinenVarasto(id);
             return Results.Ok($"Varasto {id} asetettu aktiiviseksi.");
+        });
+
+        // Hae aktiivinen varasto http://localhost:5000/varasto/aktiivinen
+        app.MapGet("/varasto/aktiivinen", () =>
+        {
+            var aktiivinen = Varasto.HaeAktiivinenVarasto();
+
+            if (aktiivinen == null)
+                return Results.NotFound("Ei aktiivista varastoa.");
+
+            return Results.Ok(aktiivinen);
         });
 
 
@@ -56,9 +72,9 @@ public class Program
             return Results.Ok($"Tuote '{tuote.nimi}' lisätty!");
         });
 
-        app.MapGet("/etsituotteet", (string column, string value, VarastoDB db) =>
+        app.MapGet("/etsituotteet", (string column, string value) =>
         {
-            var results = db.EtsiTuotteet(column, value);
+            var results = Varasto.EtsiTuotteet(column, value);
             return Results.Ok(results);
         });
 
@@ -69,6 +85,7 @@ public class Program
             Varasto.MuokkaaTuote(id, muokattuTuote);
             return Results.Ok($"Tuote {id} päivitetty!");
         });
+
 
         app.Run();
     }
