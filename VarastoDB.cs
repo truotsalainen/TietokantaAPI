@@ -101,165 +101,38 @@ public class VarastoDB
     }
 
 
-    public void MuokkaaTuote(string nimi)
+    public void MuokkaaTuote(int id, Tuote muokattuTuote)
     {
         if (currentVarastoId == null)
         {
-            Console.WriteLine("Et ole valinnut varastoa.");
-            return;
+            throw new Exception("Ei aktiivista varastoa.");
         }
 
         using (var connection = new SqliteConnection(_connectionString))
         {
             connection.Open();
 
-            //Find all products with the given name
-            var fetchCmd = connection.CreateCommand();
-            fetchCmd.CommandText = @"
-                SELECT Id, Nimi, Maara, Tag, Kunto 
-                FROM Tuotteet 
-                WHERE Nimi = $Nimi AND VarastoId = $VarastoId";
-            fetchCmd.Parameters.AddWithValue("$Nimi", nimi);
-            fetchCmd.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
+            // korvataan olemassaoleva tuote uudella
+            var updateCmd = connection.CreateCommand();
+            updateCmd.CommandText = @"
+                UPDATE Tuotteet 
+                SET Nimi = $Nimi, Maara = $Maara, Tag = $Tag, Kunto = $Kunto
+                WHERE Id = $Id AND VarastoId = $VarastoId";
 
-            var products = new List<(int Id, string Nimi, int Maara, string Tag, string Kunto)>();
-            using (var reader = fetchCmd.ExecuteReader())
+            updateCmd.Parameters.AddWithValue("$Id", id);
+            updateCmd.Parameters.AddWithValue("$Nimi", muokattuTuote.nimi);
+            updateCmd.Parameters.AddWithValue("$Maara", muokattuTuote.maara);
+            updateCmd.Parameters.AddWithValue("$Tag", muokattuTuote.tag);
+            updateCmd.Parameters.AddWithValue("$Kunto", muokattuTuote.kunto);
+            updateCmd.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
+            if (updateCmd.ExecuteNonQuery() == 0)
             {
-                while (reader.Read())
-                {
-                    products.Add((reader.GetInt32(0), reader.GetString(1), reader.GetInt32(2), reader.GetString(3), reader.GetString(4)));
-                }
+                throw new Exception("Tuotetta ei löytynyt.");
             }
-
-            if (products.Count == 0)
-            {
-                Console.WriteLine("Tuotetta ei löytynyt.");
-                return;
-            }
-
-            //Ask user which ID to edit if multiple
-            Console.WriteLine("Löydetyt tuotteet:");
-            foreach (var p in products)
-                Console.WriteLine($"ID: {p.Id} | Nimi: {p.Nimi}, Määrä: {p.Maara}, Tag: {p.Tag}, Kunto: {p.Kunto}");
-
-            Console.WriteLine("Anna ID valitaksesi tuotteen muokattavaksi:");
-            if (!int.TryParse(Console.ReadLine(), out int id) || !products.Any(p => p.Id == id))
-            {
-                Console.WriteLine("Virheellinen ID");
-                return;
-            }
-
-            var productToEdit = products.First(p => p.Id == id);
-
-            // Editable fields
-            string oldNimi = productToEdit.Nimi;
-            int oldMaara = productToEdit.Maara;
-            string oldTag = productToEdit.Tag;
-            string oldKunto = productToEdit.Kunto;
-
-            while (true)
-            {
-                Console.WriteLine($"\nMuokataan tuotetta (ID={id}):");
-                Console.WriteLine($"[1] Nimi: {oldNimi}");
-                Console.WriteLine($"[2] Määrä: {oldMaara}");
-                Console.WriteLine($"[3] Tag: {oldTag}");
-                Console.WriteLine($"[4] Kunto: {oldKunto}");
-                Console.WriteLine("[5] Valmis (palaa)");
-
-                Console.Write("\nValitse mitä haluat muuttaa: ");
-                string choice = Console.ReadLine().Trim();
-
-                if (choice == "5") break;
-
-                string column = "";
-                object newValue = null;
-
-                if (choice == "1")
-                {
-                    Console.Write("Uusi nimi: ");
-                    newValue = Console.ReadLine().Trim();
-                    column = "Nimi";
-                    oldNimi = (string)newValue;
-                }
-                else if (choice == "2")
-                {
-                    Console.Write("Uusi määrä: ");
-                    if (int.TryParse(Console.ReadLine(), out int newMaara))
-                    {
-                        newValue = newMaara;
-                        column = "Maara";
-                        oldMaara = newMaara;
-                    }
-                    else
-                    {
-                        Console.WriteLine("Virheellinen numero!");
-                        continue;
-                    }
-                }
-                else if (choice == "3")
-                {
-                    Console.Write("Uusi tag: ");
-                    newValue = Console.ReadLine().Trim().ToLower();
-                    column = "Tag";
-                    oldTag = (string)newValue;
-                }
-                else if (choice == "4")
-                {
-                    Console.Write("Uusi kunto: ");
-                    newValue = Console.ReadLine().Trim().ToLower();
-                    column = "Kunto";
-                    oldKunto = (string)newValue;
-                }
-                else
-                {
-                    Console.WriteLine("Virheellinen valinta!");
-                    continue;
-                }
-
-                // Update the chosen field
-                var updateCmd = connection.CreateCommand();
-                updateCmd.CommandText = $"UPDATE Tuotteet SET {column} = $Value WHERE Id = $Id";
-                updateCmd.Parameters.AddWithValue("$Value", newValue);
-                updateCmd.Parameters.AddWithValue("$Id", id);
-                updateCmd.ExecuteNonQuery();
-                Console.WriteLine($"{column} päivitetty onnistuneesti!");
-
-                //Check if a duplicate now exists
-                var mergeCmd = connection.CreateCommand();
-                mergeCmd.CommandText = @"
-                    SELECT Id, Maara FROM Tuotteet
-                    WHERE Id != $Id AND Nimi = $Nimi AND Tag = $Tag AND Kunto = $Kunto AND VarastoId = $VarastoId";
-                mergeCmd.Parameters.AddWithValue("$Id", id);
-                mergeCmd.Parameters.AddWithValue("$Nimi", oldNimi);
-                mergeCmd.Parameters.AddWithValue("$Tag", oldTag);
-                mergeCmd.Parameters.AddWithValue("$Kunto", oldKunto);
-                mergeCmd.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
-
-                using var mergeReader = mergeCmd.ExecuteReader();
-                if (mergeReader.Read())
-                {
-                    int existingId = mergeReader.GetInt32(0);
-                    int existingMaara = mergeReader.GetInt32(1);
-
-                    int combinedMaara = existingMaara + oldMaara;
-
-                    // Update existing row
-                    var updateExisting = connection.CreateCommand();
-                    updateExisting.CommandText = "UPDATE Tuotteet SET Maara = $Maara WHERE Id = $Id";
-                    updateExisting.Parameters.AddWithValue("$Maara", combinedMaara);
-                    updateExisting.Parameters.AddWithValue("$Id", existingId);
-                    updateExisting.ExecuteNonQuery();
-
-                    // Delete the edited row
-                    var deleteEdited = connection.CreateCommand();
-                    deleteEdited.CommandText = "DELETE FROM Tuotteet WHERE Id = $Id";
-                    deleteEdited.Parameters.AddWithValue("$Id", id);
-                    deleteEdited.ExecuteNonQuery();
-
-                    Console.WriteLine("Tuotteet yhdistetty samaan riviin.");
-                    break; // Stop editing because the row no longer exists
-                }
-            }
+            
+            // HUOM! Tämä metodi ei enää automaattisesti yhdistä identtisiä tuotteita,
+            // siihen tarvitaan erillinen metodi ja endpoint! Tämä siksi, ettei ID muutu
+            // kesken tuotteen käsittelyn ilman että käyttäjä haluaa/huomaa! -TPR
         }
     }
 
