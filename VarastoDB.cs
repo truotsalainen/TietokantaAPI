@@ -375,6 +375,37 @@ public class VarastoDB
         }
     }
 
+    public object? HaeAktiivinenVarasto()
+    {
+        if (currentVarastoId == null)
+            return null;
+
+        using (var connection = new SqliteConnection(_connectionString))
+        {
+            connection.Open();
+
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "SELECT Id, Nimi FROM Varastot WHERE Id = @id";
+                command.Parameters.AddWithValue("@id", currentVarastoId);
+
+                using (var reader = command.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        return new
+                        {
+                            Id = reader.GetInt32(0),
+                            Nimi = reader.GetString(1)
+                        };
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
 
     public List<VarastoTiedot> HaeVarastot()
     {
