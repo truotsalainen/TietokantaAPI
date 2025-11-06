@@ -8,7 +8,7 @@ public class Program
     public record VarastoNimiRequest(string nimi);
     public static void Main(string[] args)
     {
-        
+
         var builder = WebApplication.CreateBuilder(args);
         var app = builder.Build();
 
@@ -22,7 +22,7 @@ public class Program
         });
 
         // Luo uusi varasto ja aseta se aktiiviseksi POST http://localhost:5000/varasto BODY: JSON
-       
+
         app.MapPost("/varasto", ([FromBody] VarastoNimiRequest request) =>
         {
             int id = Varasto.LuoVarasto(request.nimi);
@@ -86,6 +86,15 @@ public class Program
             return Results.Ok($"Tuote {id} päivitetty!");
         });
 
+        // Poista tuote DELETE http://localhost:5000/tuote/5
+        app.MapDelete("/tuote/{id}", (int id) =>
+        {
+            bool success = Varasto.PoistaTuote(id);
+            if (success)
+                return Results.Ok($"Tuote {id} poistettu onnistuneesti.");
+            else
+                return Results.NotFound($"Tuotetta {id} ei löytynyt.");
+        });
 
         app.Run();
     }
