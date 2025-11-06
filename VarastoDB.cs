@@ -129,7 +129,7 @@ public class VarastoDB
             {
                 throw new Exception("Tuotetta ei löytynyt.");
             }
-            
+
             // HUOM! Tämä metodi ei enää automaattisesti yhdistä identtisiä tuotteita,
             // siihen tarvitaan erillinen metodi ja endpoint! Tämä siksi, ettei ID muutu
             // kesken tuotteen käsittelyn ilman että käyttäjä haluaa/huomaa! -TPR
@@ -340,6 +340,19 @@ public class VarastoDB
                 return false;
             }
         }
+    }
+
+    public bool PoistaTuote(int id)
+    {
+        using var yhteys = new SqliteConnection(_connectionString);
+        yhteys.Open();
+
+        var komento = yhteys.CreateCommand();
+        komento.CommandText = "DELETE FROM Tuotteet WHERE id = $id";
+        komento.Parameters.AddWithValue("$id", id);
+
+        int rivit = komento.ExecuteNonQuery();
+        return rivit > 0; // True jos poistettiin vähintään yksi rivi
     }
 
     // (Valinnaisesti: setter aktiiviselle varastolle)
