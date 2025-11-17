@@ -1,4 +1,4 @@
-namespace TietokantaViikko;
+namespace TietokantaAPI;
 
 using System.Data;
 using Microsoft.Data.Sqlite;
