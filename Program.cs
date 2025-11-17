@@ -91,7 +91,6 @@ public class Program
         app.MapPut("/tuote/{id}", (int id, Tuote muokattuTuote) =>
         {
             Varasto.MuokkaaTuote(id, muokattuTuote);
-            return Results.Ok($"Tuote {id} päivitetty!");
         });
 
         // Poista tuote DELETE http://localhost:5000/tuote/5
