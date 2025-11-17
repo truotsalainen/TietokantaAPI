@@ -101,12 +101,10 @@ public class VarastoDB
     }
 
 
-    public void MuokkaaTuote(int id, Tuote muokattuTuote)
+    public IResult MuokkaaTuote(int id, Tuote muokattuTuote)
     {
         if (currentVarastoId == null)
-        {
-            throw new Exception("Ei aktiivista varastoa.");
-        }
+            return Results.BadRequest(new { message = "Ei aktiivista varastoa." });
 
         using (var connection = new SqliteConnection(_connectionString))
         {
@@ -125,14 +123,55 @@ public class VarastoDB
             updateCmd.Parameters.AddWithValue("$Tag", muokattuTuote.tag);
             updateCmd.Parameters.AddWithValue("$Kunto", muokattuTuote.kunto);
             updateCmd.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
+
             if (updateCmd.ExecuteNonQuery() == 0)
+                return Results.NotFound(new { message = "Tuotetta ei löytynyt" });
+
+            // Tarkistetaan identtiset tuotteet
+            var mergeCmd = connection.CreateCommand();
+            mergeCmd.CommandText = @"
+                SELECT Id, Maara FROM Tuotteet
+                WHERE Id != $Id AND Nimi = $Nimi AND Tag = $Tag AND Kunto = $Kunto AND VarastoId = $VarastoId
+                LIMIT 1";
+            mergeCmd.Parameters.AddWithValue("$Id", id);
+            mergeCmd.Parameters.AddWithValue("$Nimi", muokattuTuote.nimi);
+            mergeCmd.Parameters.AddWithValue("$Tag", muokattuTuote.tag);
+            mergeCmd.Parameters.AddWithValue("$Kunto", muokattuTuote.kunto);
+            mergeCmd.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
+
+            int? vanhaId = null;
+            int vanhaMaara = 0;
+
+            using (var mergeReader = mergeCmd.ExecuteReader())
             {
-                throw new Exception("Tuotetta ei löytynyt.");
+                if (mergeReader.Read())
+                {
+                    vanhaId = mergeReader.GetInt32(0);
+                    vanhaMaara = mergeReader.GetInt32(1);
+                }
             }
 
-            // HUOM! Tämä metodi ei enää automaattisesti yhdistä identtisiä tuotteita,
-            // siihen tarvitaan erillinen metodi ja endpoint! Tämä siksi, ettei ID muutu
-            // kesken tuotteen käsittelyn ilman että käyttäjä haluaa/huomaa! -TPR
+            if (vanhaId.HasValue)
+            {
+                int combinedMaara = vanhaMaara + muokattuTuote.maara;
+
+                // Update existing row
+                var updateExisting = connection.CreateCommand();
+                updateExisting.CommandText = "UPDATE Tuotteet SET Maara = $Maara WHERE Id = $Id";
+                updateExisting.Parameters.AddWithValue("$Maara", combinedMaara);
+                updateExisting.Parameters.AddWithValue("$Id", vanhaId.Value);
+                updateExisting.ExecuteNonQuery();
+
+                // Delete the edited row
+                var deleteEdited = connection.CreateCommand();
+                deleteEdited.CommandText = "DELETE FROM Tuotteet WHERE Id = $Id";
+                deleteEdited.Parameters.AddWithValue("$Id", id);
+                deleteEdited.ExecuteNonQuery();
+
+                return Results.Ok(new { message = "Muokattu tuote yhdistetty toiseen tuotteeseen." });
+            }
+
+            return Results.Ok(new { message = "Tuote muokattu onnistuneesti" });
         }
     }
 
