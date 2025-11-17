@@ -1,5 +1,4 @@
 using System.Data.Common;
-using TietokantaViikko;
 using Microsoft.AspNetCore.Mvc;
 namespace TietokantaAPI;
 
@@ -10,9 +9,18 @@ public class Program
     {
 
         var builder = WebApplication.CreateBuilder(args);
+
+        builder.WebHost.UseUrls("http://0.0.0.0:5000");
+
         var app = builder.Build();
 
         var Varasto = new VarastoDB();
+
+        app.MapGet("/hello", () => 
+        {
+            Console.WriteLine("Hello world");
+            return "Hello world";
+        });
 
         // Listaa kaikki varastot   GET http://localhost:5000/varastot
         app.MapGet("/varastot", () =>
