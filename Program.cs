@@ -16,10 +16,10 @@ public class Program
 
         var Varasto = new VarastoDB();
 
+        // testi
         app.MapGet("/hello", () => 
         {
-            Console.WriteLine("Hello world");
-            return "Hello world";
+            return Results.Ok("Hello world");
         });
 
         // Listaa kaikki varastot   GET http://localhost:5000/varastot
@@ -67,7 +67,7 @@ public class Program
             return Results.Ok(aktiivinen);
         });
 
-
+        // Listaa tuotteet.
         app.MapGet("/tuote", () =>
         {
             return Results.Ok(Varasto.ListaaTuotteet());
@@ -80,6 +80,7 @@ public class Program
             return Results.Ok($"Tuote '{tuote.nimi}' lisätty!");
         });
 
+        // Etsii tuotteet.
         app.MapGet("/etsituotteet", (string column, string value) =>
         {
             var results = Varasto.EtsiTuotteet(column, value);
