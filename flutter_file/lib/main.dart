@@ -1,6 +1,7 @@
 import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'api_service.dart';
 
 void main() {
   runApp(MyApp());
@@ -41,6 +42,24 @@ class MyAppState extends ChangeNotifier {
       favorites.add(current);
     }
     notifyListeners();
+  }
+  final ApiService api = ApiService();
+
+  Future<void> helloworld() async {
+    try {
+      String result = await api.getHello();
+      print(result); // <-- prints "Hello world"
+
+      // Optional: update your UI state based on API result
+      // hello.add(result);
+
+      notifyListeners();
+    } catch (e) {
+      print("Error: $e");
+    }
+  }
+  Future<String> getHelloMessage() async {
+  return await api.getHello();
   }
 }
 
@@ -146,6 +165,18 @@ class GeneratorPage extends StatelessWidget {
                   appState.getNext();
                 },
                 child: Text('Next'),
+              ),
+              //Hello world button
+              SizedBox(width: 10),
+              ElevatedButton(
+                onPressed: () async {
+                  appState.helloworld();
+                  final message = await appState.getHelloMessage();
+                  ScaffoldMessenger.of(context).showSnackBar(//return message 
+                    SnackBar(content: Text(message)),
+                  );
+                },
+                child: Text('Hello World'),
               ),
             ],
           ),
