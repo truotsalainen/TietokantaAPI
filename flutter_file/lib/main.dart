@@ -14,7 +14,7 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (context) => MyAppState(),
       child: MaterialApp(
-        title: 'Namer App',
+        title: 'Hoardr',
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
         ),
@@ -61,9 +61,25 @@ class _MyHomePageState extends State<MyHomePage> {
     Widget page;
     switch (selectedIndex) {
       case 0:
-        page = GeneratorPage();
+        page = LoginPage();
       case 1:
-        page = FavoritesPage();
+        page = CreateUserPage();
+      case 2:
+        page = ForgotPasswordPage();
+      case 3:
+        page = CollectionViewPage();
+      case 4:
+        page = CreateCollectionPage();
+      case 5:
+        page = CollectionsPage();
+      case 6:
+        page = EditCollectionPage();
+      case 7:
+        page = DeleteCollectionPage();
+      case 8:
+        page = NewItemPage();
+      case 9:
+        page = EditItemPage();
       default:
         throw UnimplementedError('no widget for $selectedIndex');
     }
@@ -78,12 +94,44 @@ class _MyHomePageState extends State<MyHomePage> {
                   extended: constraints.maxWidth >= 600,
                   destinations: [
                     NavigationRailDestination(
-                      icon: Icon(Icons.home),
-                      label: Text('Home'),
+                      icon: Icon(Icons.login),
+                      label: Text('Login'),
                     ),
                     NavigationRailDestination(
-                      icon: Icon(Icons.favorite),
-                      label: Text('Favorites'),
+                      icon: Icon(Icons.account_box),
+                      label: Text('Create User'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.question_mark),
+                      label: Text('Forgot Password'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.browse_gallery),
+                      label: Text('Browse Collection'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.create_new_folder),
+                      label: Text('New Collection'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.folder_open),
+                      label: Text('Collection menu'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.edit),
+                      label: Text('Edit Collection'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.delete),
+                      label: Text('Delete Collection'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.new_label),
+                      label: Text('New Item'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.edit),
+                      label: Text('Edit Item'),
                     ),
                   ],
                   selectedIndex: selectedIndex,
@@ -210,6 +258,633 @@ class FavoritesPage extends StatelessWidget {
             title: Text(pair.asLowerCase),
           ),
       ],
+    );
+  }
+}
+
+class LoginPage extends StatelessWidget {
+  const LoginPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    var appState = context.watch<MyAppState>();
+
+    return Padding(
+      padding: const EdgeInsets.all(30),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            
+            // LOGO GOES HERE
+
+            TextField(
+              decoration:InputDecoration(
+                labelText: 'Username',
+                border: OutlineInputBorder(),
+              )
+            ),
+
+            SizedBox(height: 30),
+
+            TextField(
+              decoration:InputDecoration(
+                labelText: 'Password',
+                border: OutlineInputBorder(),
+              )
+            ),
+
+            SizedBox(height: 30),
+
+            ElevatedButton(
+              onPressed: Placeholder.new,
+             child: Text("Login")
+            ),
+        
+            SizedBox(height: 30),
+        
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: Placeholder.new , 
+                  child: Text('Forgot\nPassword'),
+                  ),
+                  SizedBox(width: 10),
+                ElevatedButton(
+                  onPressed: Placeholder.new , 
+                  child: Text('New User')
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class CreateUserPage extends StatelessWidget {
+  const CreateUserPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    var appState = context.watch<MyAppState>();
+
+    return Padding(
+      padding: const EdgeInsets.all(30),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            
+            // LOGO GOES HERE
+            
+            TextField(
+              decoration:InputDecoration(
+                labelText: 'Enter Username',
+                border: OutlineInputBorder(),
+              )
+            ),
+
+            SizedBox(height: 30),
+
+            TextField(
+              decoration:InputDecoration(
+                labelText: 'Enter E-mail Address',
+                border: OutlineInputBorder(),
+              )
+            ),
+
+            SizedBox(height: 30),
+
+            TextField(
+              decoration:InputDecoration(
+                labelText: 'Create a Password',
+                border: OutlineInputBorder(),
+              )
+            ),
+
+            SizedBox(height: 30),
+
+            TextField(
+              decoration:InputDecoration(
+                labelText: 'Re-Enter Password',
+                border: OutlineInputBorder(),
+              )
+            ),
+        
+            SizedBox(height: 30),
+        
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: Placeholder.new , 
+                  child: Text('Return'),
+                  ),
+                  SizedBox(width: 10),
+                ElevatedButton(
+                  onPressed: Placeholder.new , 
+                  child: Text('Create Account')
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ForgotPasswordPage extends StatelessWidget {
+  const ForgotPasswordPage({super.key});
+
+  @ override
+  Widget build(BuildContext context) {
+    var appState = context.watch<MyAppState>();
+
+     return Padding(
+       padding: const EdgeInsets.all(30),
+       child: Center(
+         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+           children: [
+            Text("Enter your username, and we will e-mail you your password."),
+            SizedBox(height:30),
+            TextField(
+              decoration:InputDecoration(
+                labelText: 'Username',
+                border: OutlineInputBorder(),
+              )
+            ),
+            SizedBox(height:30),
+             Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+               children: [
+                 ElevatedButton(
+                    onPressed: Placeholder.new , 
+                    child: Text('Return')
+                  ),
+             
+                SizedBox(width: 10),
+             
+                 ElevatedButton(
+                    onPressed: Placeholder.new , 
+                    child: Text('Request Password')
+                  ),
+               ],
+             ),
+           ],
+         ),
+       ),
+     );
+  }
+}
+
+class CollectionViewPage extends StatelessWidget {
+  const CollectionViewPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    var appState = context.watch<MyAppState>();
+
+    return Center(
+      child: Column(
+        children: [
+      
+          Row(children: [
+      
+            Text('PLACEHOLDER COLLECTION NAME'),
+      
+            SizedBox(width: 10),
+      
+            ElevatedButton(
+            onPressed: Placeholder.new,
+             child: Text('Change')
+             ),
+            ],
+          ),
+      
+          SizedBox(height: 30),
+      
+          Expanded(
+            child: Container(
+              child: ListView(
+                children: const[
+                  ListTile(
+                    title: Text('Placeholder'),
+                    ),
+      
+                    ListTile(
+                    title: Text('Placeholder'),
+                    ),
+      
+                    ListTile(
+                    title: Text('Placeholder'),
+                    ),
+      
+                    ListTile(
+                    title: Text('Placeholder'),
+                    ),
+      
+                    ListTile(
+                    title: Text('Placeholder'),
+                    ),
+                ]
+              ),
+            ),
+          ),
+      
+      
+          SizedBox(height:30),
+      
+          Row(
+            children: [
+      
+              ElevatedButton(
+                onPressed: Placeholder.new,
+                 child: Text('Search'),
+                ),
+      
+                SizedBox(width: 10),
+      
+              ElevatedButton(
+                onPressed: Placeholder.new,
+                child: Text('Add Item')
+                ),
+          
+                SizedBox(width: 10),
+          
+                ElevatedButton(
+                onPressed: Placeholder.new,
+                child: Text('Edit Item')
+                ),
+          
+                SizedBox(width: 10),
+          
+                ElevatedButton(
+                onPressed: Placeholder.new,
+                child: Text('Delete Item')
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CreateCollectionPage extends StatelessWidget {
+  const CreateCollectionPage({super.key});
+
+  @ override
+  Widget build(BuildContext context) {
+    var appState = context.watch<MyAppState>();
+
+     return Padding(
+       padding: const EdgeInsets.all(30),
+       child: Center(
+         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+           children: [
+            TextField(
+              decoration:InputDecoration(
+                labelText: 'Name your collection:',
+                border: OutlineInputBorder(),
+              )
+            ),
+            SizedBox(height:30),
+             Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+               children: [
+                 ElevatedButton(
+                    onPressed: Placeholder.new , 
+                    child: Text('Return')
+                  ),
+             
+                SizedBox(width: 10),
+             
+                 ElevatedButton(
+                    onPressed: Placeholder.new , 
+                    child: Text('Create collection')
+                  ),
+               ],
+             ),
+           ],
+         ),
+       ),
+     );
+  }
+}
+
+class CollectionsPage extends StatelessWidget {
+  const CollectionsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    var appState = context.watch<MyAppState>();
+
+    return Center(
+      child: Column(
+        children: [
+
+          Expanded(
+            child: Container(
+              child: ListView(
+                children: const[
+                  ListTile(
+                    title: Text('Placeholder Collection'),
+                    ),
+      
+                    ListTile(
+                    title: Text('Placeholder Collection'),
+                    ),
+      
+                    ListTile(
+                    title: Text('Placeholder Collection'),
+                    ),
+      
+                    ListTile(
+                    title: Text('Placeholder Collection'),
+                    ),
+      
+                    ListTile(
+                    title: Text('Placeholder Collection'),
+                    ),
+                ]
+              ),
+            ),
+          ),
+      
+      
+          SizedBox(height:30),
+      
+          Row(
+            children: [
+      
+              ElevatedButton(
+                onPressed: Placeholder.new,
+                 child: Text('Search'),
+                ),
+      
+                SizedBox(width: 10),
+      
+              ElevatedButton(
+                onPressed: Placeholder.new,
+                child: Text('New Collection')
+                ),
+          
+                SizedBox(width: 10),
+          
+                ElevatedButton(
+                onPressed: Placeholder.new,
+                child: Text('Edit Collection')
+                ),
+          
+                SizedBox(width: 10),
+          
+                ElevatedButton(
+                onPressed: Placeholder.new,
+                child: Text('Delete Collection')
+                ),
+            ]),
+      ]),
+    );   
+  }
+}
+
+class EditCollectionPage extends StatelessWidget {
+  const EditCollectionPage({super.key});
+
+  @ override
+  Widget build(BuildContext context) {
+    var appState = context.watch<MyAppState>();
+
+     return Padding(
+       padding: const EdgeInsets.all(30),
+       child: Center(
+         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+           children: [
+            TextField(
+              decoration:InputDecoration(
+                labelText: 'Rename your collection:',
+                border: OutlineInputBorder(),
+              )
+            ),
+            SizedBox(height:30),
+             Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+               children: [
+                 ElevatedButton(
+                    onPressed: Placeholder.new , 
+                    child: Text('Return')
+                  ),
+             
+                SizedBox(width: 10),
+             
+                 ElevatedButton(
+                    onPressed: Placeholder.new , 
+                    child: Text('Save Changes')
+                  ),
+               ],
+             ),
+           ],
+         ),
+       ),
+     );
+  }
+}
+
+class DeleteCollectionPage extends StatelessWidget {
+  const DeleteCollectionPage({super.key});
+
+  @ override
+  Widget build(BuildContext context) {
+    var appState = context.watch<MyAppState>();
+
+     return Padding(
+       padding: const EdgeInsets.all(30),
+       child: Center(
+         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+           children: [
+
+            Text('Are you sure you want to delete {collection name}? It will delete all contained data permanently.\n\nIf you are sure you want to delete {collection name}, type ”DELETE” in the box below.'),
+            
+            SizedBox(height:30),
+            
+            TextField(
+              decoration:InputDecoration(
+                labelText: "Type 'DELETE' here",
+                border: OutlineInputBorder(),
+              )
+            ),
+            SizedBox(height:30),
+             Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+               children: [
+                 ElevatedButton(
+                    onPressed: Placeholder.new , 
+                    child: Text('Return')
+                  ),
+             
+                SizedBox(width: 10),
+             
+                 ElevatedButton(
+                    onPressed: Placeholder.new , 
+                    child: Text('Delete collection')
+                  ),
+               ],
+             ),
+           ],
+         ),
+       ),
+     );
+  }
+}
+
+class NewItemPage extends StatelessWidget {
+  const NewItemPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    var appState = context.watch<MyAppState>();
+
+    return Padding(
+      padding: const EdgeInsets.all(30),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            
+            TextField(
+              decoration:InputDecoration(
+                labelText: 'Enter Name:',
+                border: OutlineInputBorder(),
+              )
+            ),
+
+            SizedBox(height: 30),
+
+            TextField(
+              decoration:InputDecoration(
+                labelText: 'Enter Quantity:',
+                border: OutlineInputBorder(),
+              )
+            ),
+
+            SizedBox(height: 30),
+
+            TextField(
+              decoration:InputDecoration(
+                labelText: 'Enter Type:',
+                border: OutlineInputBorder(),
+              )
+            ),
+
+            SizedBox(height: 30),
+
+            TextField(
+              decoration:InputDecoration(
+                labelText: 'Enter Condition',
+                border: OutlineInputBorder(),
+              )
+            ),
+        
+            SizedBox(height: 30),
+        
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: Placeholder.new , 
+                  child: Text('Return'),
+                  ),
+                  SizedBox(width: 10),
+                ElevatedButton(
+                  onPressed: Placeholder.new , 
+                  child: Text('Create Item')
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class EditItemPage extends StatelessWidget {  //need to link description text to the item being edited!
+  const EditItemPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    var appState = context.watch<MyAppState>();
+
+    return Padding(
+      padding: const EdgeInsets.all(30),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            
+            // LOGO GOES HERE
+            
+            TextField(
+              decoration:InputDecoration(
+                labelText: 'Enter Name:',
+                border: OutlineInputBorder(),
+              )
+            ),
+
+            SizedBox(height: 30),
+
+            TextField(
+              decoration:InputDecoration(
+                labelText: 'Enter Quantity:',
+                border: OutlineInputBorder(),
+              )
+            ),
+
+            SizedBox(height: 30),
+
+            TextField(
+              decoration:InputDecoration(
+                labelText: 'Enter Type:',
+                border: OutlineInputBorder(),
+              )
+            ),
+
+            SizedBox(height: 30),
+
+            TextField(
+              decoration:InputDecoration(
+                labelText: 'Enter Condition',
+                border: OutlineInputBorder(),
+              )
+            ),
+        
+            SizedBox(height: 30),
+        
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: Placeholder.new , 
+                  child: Text('Return'),
+                  ),
+                  SizedBox(width: 10),
+                ElevatedButton(
+                  onPressed: Placeholder.new , 
+                  child: Text('Save Changes')
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
