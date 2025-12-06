@@ -12,9 +12,26 @@ public class Program
 
         builder.WebHost.UseUrls("http://0.0.0.0:5000");
 
-        var app = builder.Build();
+        
 
         var Varasto = new VarastoDB();
+        
+
+        // Add CORS policy
+        builder.Services.AddCors(options =>
+        {
+            options.AddPolicy("AllowAll", policy =>
+            {
+                policy.AllowAnyOrigin()    // Allow any origin (development only)
+                    .AllowAnyMethod()    // Allow GET, POST, etc.
+                    .AllowAnyHeader();   // Allow headers like Content-Type
+            });
+        });
+
+        var app = builder.Build();
+
+        // Use the CORS policy
+        app.UseCors("AllowAll");
 
         // testi
         app.MapGet("/hello", () => 
