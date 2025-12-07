@@ -12,4 +12,14 @@ class ApiService {
       throw Exception("Failed to load hello");
     }
   }
+
+  Future<String> deleteCollection(String name) async {
+    final response = await http.delete(Uri.parse("$baseUrl/delete/$name"));
+
+    if (response.statusCode == 200) {
+      return response.body;
+    } else {
+      throw Exception("Delete failed: ${response.statusCode}");
+    }
+  }
 }

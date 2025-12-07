@@ -43,6 +43,7 @@ class MyAppState extends ChangeNotifier {
     }
     notifyListeners();
   }
+
   final ApiService api = ApiService();
 
   Future<void> helloworld() async {
@@ -58,8 +59,9 @@ class MyAppState extends ChangeNotifier {
       print("Error: $e");
     }
   }
+
   Future<String> getHelloMessage() async {
-  return await api.getHello();
+    return await api.getHello();
   }
 }
 
@@ -71,12 +73,10 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-
   var selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
-
     Widget page;
     switch (selectedIndex) {
       case 0:
@@ -155,7 +155,6 @@ class _MyHomePageState extends State<MyHomePage> {
                   ],
                   selectedIndex: selectedIndex,
                   onDestinationSelected: (value) {
-                    
                     setState(() {
                       selectedIndex = value;
                     });
@@ -171,7 +170,7 @@ class _MyHomePageState extends State<MyHomePage> {
             ],
           ),
         );
-      }
+      },
     );
   }
 }
@@ -220,7 +219,8 @@ class GeneratorPage extends StatelessWidget {
                 onPressed: () async {
                   appState.helloworld();
                   final message = await appState.getHelloMessage();
-                  ScaffoldMessenger.of(context).showSnackBar(//return message 
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    //return message
                     SnackBar(content: Text(message)),
                   );
                 },
@@ -235,10 +235,7 @@ class GeneratorPage extends StatelessWidget {
 }
 
 class BigCard extends StatelessWidget {
-  const BigCard({
-    super.key,
-    required this.pair,
-  });
+  const BigCard({super.key, required this.pair});
 
   final WordPair pair;
 
@@ -271,17 +268,17 @@ class FavoritesPage extends StatelessWidget {
     var appState = context.watch<MyAppState>();
 
     if (appState.favorites.isEmpty) {
-      return Center(
-        child: Text('No favorites yet.'),
-      );
+      return Center(child: Text('No favorites yet.'));
     }
 
     return ListView(
       children: [
         Padding(
           padding: const EdgeInsets.all(20),
-          child: Text('You have '
-              '${appState.favorites.length} favorites:'),
+          child: Text(
+            'You have '
+            '${appState.favorites.length} favorites:',
+          ),
         ),
         for (var pair in appState.favorites)
           ListTile(
@@ -306,45 +303,40 @@ class LoginPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            
             // LOGO GOES HERE
-
             TextField(
-              decoration:InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Username',
                 border: OutlineInputBorder(),
-              )
+              ),
             ),
 
             SizedBox(height: 30),
 
             TextField(
-              decoration:InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Password',
                 border: OutlineInputBorder(),
-              )
+              ),
             ),
 
             SizedBox(height: 30),
 
-            ElevatedButton(
-              onPressed: Placeholder.new,
-             child: Text("Login")
-            ),
-        
+            ElevatedButton(onPressed: Placeholder.new, child: Text("Login")),
+
             SizedBox(height: 30),
-        
+
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 ElevatedButton(
-                  onPressed: Placeholder.new , 
+                  onPressed: Placeholder.new,
                   child: Text('Forgot\nPassword'),
-                  ),
-                  SizedBox(width: 10),
+                ),
+                SizedBox(width: 10),
                 ElevatedButton(
-                  onPressed: Placeholder.new , 
-                  child: Text('New User')
+                  onPressed: Placeholder.new,
+                  child: Text('New User'),
                 ),
               ],
             ),
@@ -368,56 +360,54 @@ class CreateUserPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            
             // LOGO GOES HERE
-            
             TextField(
-              decoration:InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Enter Username',
                 border: OutlineInputBorder(),
-              )
+              ),
             ),
 
             SizedBox(height: 30),
 
             TextField(
-              decoration:InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Enter E-mail Address',
                 border: OutlineInputBorder(),
-              )
+              ),
             ),
 
             SizedBox(height: 30),
 
             TextField(
-              decoration:InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Create a Password',
                 border: OutlineInputBorder(),
-              )
+              ),
             ),
 
             SizedBox(height: 30),
 
             TextField(
-              decoration:InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Re-Enter Password',
                 border: OutlineInputBorder(),
-              )
+              ),
             ),
-        
+
             SizedBox(height: 30),
-        
+
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 ElevatedButton(
-                  onPressed: Placeholder.new , 
+                  onPressed: Placeholder.new,
                   child: Text('Return'),
-                  ),
-                  SizedBox(width: 10),
+                ),
+                SizedBox(width: 10),
                 ElevatedButton(
-                  onPressed: Placeholder.new , 
-                  child: Text('Create Account')
+                  onPressed: Placeholder.new,
+                  child: Text('Create Account'),
                 ),
               ],
             ),
@@ -431,45 +421,45 @@ class CreateUserPage extends StatelessWidget {
 class ForgotPasswordPage extends StatelessWidget {
   const ForgotPasswordPage({super.key});
 
-  @ override
+  @override
   Widget build(BuildContext context) {
     var appState = context.watch<MyAppState>();
 
-     return Padding(
-       padding: const EdgeInsets.all(30),
-       child: Center(
-         child: Column(
+    return Padding(
+      padding: const EdgeInsets.all(30),
+      child: Center(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-           children: [
+          children: [
             Text("Enter your username, and we will e-mail you your password."),
-            SizedBox(height:30),
+            SizedBox(height: 30),
             TextField(
-              decoration:InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Username',
                 border: OutlineInputBorder(),
-              )
+              ),
             ),
-            SizedBox(height:30),
-             Row(
+            SizedBox(height: 30),
+            Row(
               mainAxisAlignment: MainAxisAlignment.center,
-               children: [
-                 ElevatedButton(
-                    onPressed: Placeholder.new , 
-                    child: Text('Return')
-                  ),
-             
+              children: [
+                ElevatedButton(
+                  onPressed: Placeholder.new,
+                  child: Text('Return'),
+                ),
+
                 SizedBox(width: 10),
-             
-                 ElevatedButton(
-                    onPressed: Placeholder.new , 
-                    child: Text('Request Password')
-                  ),
-               ],
-             ),
-           ],
-         ),
-       ),
-     );
+
+                ElevatedButton(
+                  onPressed: Placeholder.new,
+                  child: Text('Request Password'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -483,81 +473,62 @@ class CollectionViewPage extends StatelessWidget {
     return Center(
       child: Column(
         children: [
-      
-          Row(children: [
-      
-            Text('PLACEHOLDER COLLECTION NAME'),
-      
-            SizedBox(width: 10),
-      
-            ElevatedButton(
-            onPressed: Placeholder.new,
-             child: Text('Change')
-             ),
+          Row(
+            children: [
+              Text('PLACEHOLDER COLLECTION NAME'),
+
+              SizedBox(width: 10),
+
+              ElevatedButton(onPressed: Placeholder.new, child: Text('Change')),
             ],
           ),
-      
+
           SizedBox(height: 30),
-      
+
           Expanded(
             child: Container(
               child: ListView(
-                children: const[
-                  ListTile(
-                    title: Text('Placeholder'),
-                    ),
-      
-                    ListTile(
-                    title: Text('Placeholder'),
-                    ),
-      
-                    ListTile(
-                    title: Text('Placeholder'),
-                    ),
-      
-                    ListTile(
-                    title: Text('Placeholder'),
-                    ),
-      
-                    ListTile(
-                    title: Text('Placeholder'),
-                    ),
-                ]
+                children: const [
+                  ListTile(title: Text('Placeholder')),
+
+                  ListTile(title: Text('Placeholder')),
+
+                  ListTile(title: Text('Placeholder')),
+
+                  ListTile(title: Text('Placeholder')),
+
+                  ListTile(title: Text('Placeholder')),
+                ],
               ),
             ),
           ),
-      
-      
-          SizedBox(height:30),
-      
+
+          SizedBox(height: 30),
+
           Row(
             children: [
-      
+              ElevatedButton(onPressed: Placeholder.new, child: Text('Search')),
+
+              SizedBox(width: 10),
+
               ElevatedButton(
                 onPressed: Placeholder.new,
-                 child: Text('Search'),
-                ),
-      
-                SizedBox(width: 10),
-      
+                child: Text('Add Item'),
+              ),
+
+              SizedBox(width: 10),
+
               ElevatedButton(
                 onPressed: Placeholder.new,
-                child: Text('Add Item')
-                ),
-          
-                SizedBox(width: 10),
-          
-                ElevatedButton(
+                child: Text('Edit Item'),
+              ),
+
+              SizedBox(width: 10),
+
+              ElevatedButton(
                 onPressed: Placeholder.new,
-                child: Text('Edit Item')
-                ),
-          
-                SizedBox(width: 10),
-          
-                ElevatedButton(
-                onPressed: Placeholder.new,
-                child: Text('Delete Item')
-                ),
+                child: Text('Delete Item'),
+              ),
             ],
           ),
         ],
@@ -569,43 +540,43 @@ class CollectionViewPage extends StatelessWidget {
 class CreateCollectionPage extends StatelessWidget {
   const CreateCollectionPage({super.key});
 
-  @ override
+  @override
   Widget build(BuildContext context) {
     var appState = context.watch<MyAppState>();
 
-     return Padding(
-       padding: const EdgeInsets.all(30),
-       child: Center(
-         child: Column(
+    return Padding(
+      padding: const EdgeInsets.all(30),
+      child: Center(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-           children: [
+          children: [
             TextField(
-              decoration:InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Name your collection:',
                 border: OutlineInputBorder(),
-              )
+              ),
             ),
-            SizedBox(height:30),
-             Row(
+            SizedBox(height: 30),
+            Row(
               mainAxisAlignment: MainAxisAlignment.center,
-               children: [
-                 ElevatedButton(
-                    onPressed: Placeholder.new , 
-                    child: Text('Return')
-                  ),
-             
+              children: [
+                ElevatedButton(
+                  onPressed: Placeholder.new,
+                  child: Text('Return'),
+                ),
+
                 SizedBox(width: 10),
-             
-                 ElevatedButton(
-                    onPressed: Placeholder.new , 
-                    child: Text('Create collection')
-                  ),
-               ],
-             ),
-           ],
-         ),
-       ),
-     );
+
+                ElevatedButton(
+                  onPressed: Placeholder.new,
+                  child: Text('Create collection'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -619,160 +590,164 @@ class CollectionsPage extends StatelessWidget {
     return Center(
       child: Column(
         children: [
-
           Expanded(
             child: Container(
               child: ListView(
-                children: const[
-                  ListTile(
-                    title: Text('Placeholder Collection'),
-                    ),
-      
-                    ListTile(
-                    title: Text('Placeholder Collection'),
-                    ),
-      
-                    ListTile(
-                    title: Text('Placeholder Collection'),
-                    ),
-      
-                    ListTile(
-                    title: Text('Placeholder Collection'),
-                    ),
-      
-                    ListTile(
-                    title: Text('Placeholder Collection'),
-                    ),
-                ]
+                children: const [
+                  ListTile(title: Text('Placeholder Collection')),
+
+                  ListTile(title: Text('Placeholder Collection')),
+
+                  ListTile(title: Text('Placeholder Collection')),
+
+                  ListTile(title: Text('Placeholder Collection')),
+
+                  ListTile(title: Text('Placeholder Collection')),
+                ],
               ),
             ),
           ),
-      
-      
-          SizedBox(height:30),
-      
+
+          SizedBox(height: 30),
+
           Row(
             children: [
-      
+              ElevatedButton(onPressed: Placeholder.new, child: Text('Search')),
+
+              SizedBox(width: 10),
+
               ElevatedButton(
                 onPressed: Placeholder.new,
-                 child: Text('Search'),
-                ),
-      
-                SizedBox(width: 10),
-      
+                child: Text('New Collection'),
+              ),
+
+              SizedBox(width: 10),
+
               ElevatedButton(
                 onPressed: Placeholder.new,
-                child: Text('New Collection')
-                ),
-          
-                SizedBox(width: 10),
-          
-                ElevatedButton(
+                child: Text('Edit Collection'),
+              ),
+
+              SizedBox(width: 10),
+
+              ElevatedButton(
                 onPressed: Placeholder.new,
-                child: Text('Edit Collection')
-                ),
-          
-                SizedBox(width: 10),
-          
-                ElevatedButton(
-                onPressed: Placeholder.new,
-                child: Text('Delete Collection')
-                ),
-            ]),
-      ]),
-    );   
+                child: Text('Delete Collection'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 
 class EditCollectionPage extends StatelessWidget {
   const EditCollectionPage({super.key});
 
-  @ override
+  @override
   Widget build(BuildContext context) {
     var appState = context.watch<MyAppState>();
 
-     return Padding(
-       padding: const EdgeInsets.all(30),
-       child: Center(
-         child: Column(
+    return Padding(
+      padding: const EdgeInsets.all(30),
+      child: Center(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-           children: [
+          children: [
             TextField(
-              decoration:InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Rename your collection:',
                 border: OutlineInputBorder(),
-              )
+              ),
             ),
-            SizedBox(height:30),
-             Row(
+            SizedBox(height: 30),
+            Row(
               mainAxisAlignment: MainAxisAlignment.center,
-               children: [
-                 ElevatedButton(
-                    onPressed: Placeholder.new , 
-                    child: Text('Return')
-                  ),
-             
+              children: [
+                ElevatedButton(
+                  onPressed: Placeholder.new,
+                  child: Text('Return'),
+                ),
+
                 SizedBox(width: 10),
-             
-                 ElevatedButton(
-                    onPressed: Placeholder.new , 
-                    child: Text('Save Changes')
-                  ),
-               ],
-             ),
-           ],
-         ),
-       ),
-     );
+
+                ElevatedButton(
+                  onPressed: Placeholder.new,
+                  child: Text('Save Changes'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
-class DeleteCollectionPage extends StatelessWidget {
+class DeleteCollectionPage extends StatefulWidget {
   const DeleteCollectionPage({super.key});
 
-  @ override
+  @override
+  State<DeleteCollectionPage> createState() => _DeleteCollectionPageState();
+}
+
+class _DeleteCollectionPageState extends State<DeleteCollectionPage> {
+  final TextEditingController _deleteController = TextEditingController();
+
+  @override
   Widget build(BuildContext context) {
     var appState = context.watch<MyAppState>();
 
-     return Padding(
-       padding: const EdgeInsets.all(30),
-       child: Center(
-         child: Column(
+    return Padding(
+      padding: const EdgeInsets.all(30),
+      child: Center(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-           children: [
+          children: [
+            Text(
+              'Are you sure you want to delete {collection name}? It will delete all contained data permanently.\n\nIf you are sure you want to delete {collection name}, type ”DELETE” in the box below.',
+            ),
 
-            Text('Are you sure you want to delete {collection name}? It will delete all contained data permanently.\n\nIf you are sure you want to delete {collection name}, type ”DELETE” in the box below.'),
-            
-            SizedBox(height:30),
-            
+            SizedBox(height: 30),
+
             TextField(
-              decoration:InputDecoration(
+              controller: _deleteController,
+              decoration: InputDecoration(
                 labelText: "Type 'DELETE' here",
                 border: OutlineInputBorder(),
-              )
+              ),
             ),
-            SizedBox(height:30),
-             Row(
+            SizedBox(height: 30),
+            Row(
               mainAxisAlignment: MainAxisAlignment.center,
-               children: [
-                 ElevatedButton(
-                    onPressed: Placeholder.new , 
-                    child: Text('Return')
-                  ),
-             
-                SizedBox(width: 10),
-             
-                 ElevatedButton(
-                    onPressed: Placeholder.new , 
-                    child: Text('Delete collection')
-                  ),
-               ],
-             ),
-           ],
-         ),
-       ),
-     );
+              children: [
+                ElevatedButton(
+                  onPressed: () async {
+                    var appState = context.read<MyAppState>();
+
+                    if (_deleteController.text.trim() != "DELETE") {
+                      print("You must type DELETE");
+                      return;
+                    }
+
+                    try {
+                      var result = await appState.api.deleteCollection(
+                        "varastoDB",
+                      ); // backendin nimi
+                      print("Delete OK: $result");
+                    } catch (e) {
+                      print("Error deleting: $e");
+                    }
+                  },
+                  child: Text('Delete collection'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -789,54 +764,53 @@ class NewItemPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            
             TextField(
-              decoration:InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Enter Name:',
                 border: OutlineInputBorder(),
-              )
+              ),
             ),
 
             SizedBox(height: 30),
 
             TextField(
-              decoration:InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Enter Quantity:',
                 border: OutlineInputBorder(),
-              )
+              ),
             ),
 
             SizedBox(height: 30),
 
             TextField(
-              decoration:InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Enter Type:',
                 border: OutlineInputBorder(),
-              )
+              ),
             ),
 
             SizedBox(height: 30),
 
             TextField(
-              decoration:InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Enter Condition',
                 border: OutlineInputBorder(),
-              )
+              ),
             ),
-        
+
             SizedBox(height: 30),
-        
+
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 ElevatedButton(
-                  onPressed: Placeholder.new , 
+                  onPressed: Placeholder.new,
                   child: Text('Return'),
-                  ),
-                  SizedBox(width: 10),
+                ),
+                SizedBox(width: 10),
                 ElevatedButton(
-                  onPressed: Placeholder.new , 
-                  child: Text('Create Item')
+                  onPressed: Placeholder.new,
+                  child: Text('Create Item'),
                 ),
               ],
             ),
@@ -847,7 +821,8 @@ class NewItemPage extends StatelessWidget {
   }
 }
 
-class EditItemPage extends StatelessWidget {  //need to link description text to the item being edited!
+class EditItemPage extends StatelessWidget {
+  //need to link description text to the item being edited!
   const EditItemPage({super.key});
 
   @override
@@ -860,56 +835,54 @@ class EditItemPage extends StatelessWidget {  //need to link description text to
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            
             // LOGO GOES HERE
-            
             TextField(
-              decoration:InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Enter Name:',
                 border: OutlineInputBorder(),
-              )
+              ),
             ),
 
             SizedBox(height: 30),
 
             TextField(
-              decoration:InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Enter Quantity:',
                 border: OutlineInputBorder(),
-              )
+              ),
             ),
 
             SizedBox(height: 30),
 
             TextField(
-              decoration:InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Enter Type:',
                 border: OutlineInputBorder(),
-              )
+              ),
             ),
 
             SizedBox(height: 30),
 
             TextField(
-              decoration:InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Enter Condition',
                 border: OutlineInputBorder(),
-              )
+              ),
             ),
-        
+
             SizedBox(height: 30),
-        
+
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 ElevatedButton(
-                  onPressed: Placeholder.new , 
+                  onPressed: Placeholder.new,
                   child: Text('Return'),
-                  ),
-                  SizedBox(width: 10),
+                ),
+                SizedBox(width: 10),
                 ElevatedButton(
-                  onPressed: Placeholder.new , 
-                  child: Text('Save Changes')
+                  onPressed: Placeholder.new,
+                  child: Text('Save Changes'),
                 ),
               ],
             ),
