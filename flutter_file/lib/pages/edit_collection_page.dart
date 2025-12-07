@@ -90,6 +90,19 @@ class _EditCollectionPageState extends State<EditCollectionPage> {
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text("Save Changes"),
                 ),
+
+              decoration: InputDecoration(
+                labelText: 'Rename your collection:',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            SizedBox(height: 30),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(onPressed: () {}, child: Text('Return')),
+                SizedBox(width: 10),
+                ElevatedButton(onPressed: () {}, child: Text('Save Changes')),
               ],
             ),
           ],
