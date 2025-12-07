@@ -2,6 +2,8 @@ import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'api_service.dart';
+import 'pages/delete_collection_page.dart';
+
 
 void main() {
   runApp(MyApp());
@@ -685,7 +687,7 @@ class EditCollectionPage extends StatelessWidget {
   }
 }
 
-class DeleteCollectionPage extends StatefulWidget {
+/*class DeleteCollectionPage extends StatefulWidget {
   const DeleteCollectionPage({super.key});
 
   @override
@@ -749,7 +751,7 @@ class _DeleteCollectionPageState extends State<DeleteCollectionPage> {
       ),
     );
   }
-}
+}*/
 
 class NewItemPage extends StatelessWidget {
   const NewItemPage({super.key});
