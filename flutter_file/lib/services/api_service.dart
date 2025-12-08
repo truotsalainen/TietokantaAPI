@@ -2,12 +2,22 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/varasto.dart';
 import '../models/tuote.dart' as tuote_model;
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class ApiService {
+  // Tämä palauttaa backendin osoitteen automaattisesti
   static String get baseUrl {
-    //final host = html.window.location.hostname; // gets the current IP/host
-    return 'http://192.168.x.xxx:5000';       ///   PUT YOUR OWN IP
+    if (kIsWeb) {
+      // Web-selaimessa localhost toimii
+      return 'http://localhost:5000';
+    } else if (Platform.isAndroid) {
+      // Android-emulaattorissa localhost on 10.0.2.2
+      return 'http://10.0.2.2:5000';
+    } else {
+      // Muu mobiili tai desktop: oletetaan localhost
+      return 'http://localhost:5000';
+    }
   }
 
   static Future<List<Varasto>> getWarehouses() async {
@@ -49,6 +59,17 @@ class ApiService {
 
     final data = jsonDecode(res.body) as List<dynamic>;
     return data.map((e) => tuote_model.Tuote.fromJson(e)).toList();
+  }
+
+  // POistaa varaston.
+  Future<String> deleteCollection(String name) async {
+    final response = await http.delete(Uri.parse("$baseUrl/delete/$name"));
+
+    if (response.statusCode == 200) {
+      return response.body;
+    } else {
+      throw Exception("Delete failed: ${response.statusCode}");
+    }
   }
 
   //päivittää varaston nimeä

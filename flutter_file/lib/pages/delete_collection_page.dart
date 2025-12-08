@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import '../services/api_service.dart';
+import '../models/varasto.dart';
 
 class DeleteCollectionPage extends StatefulWidget {
-  const DeleteCollectionPage({super.key});
+  final Varasto collection;
+
+  const DeleteCollectionPage({super.key, required this.collection});
 
   @override
   State<DeleteCollectionPage> createState() => _DeleteCollectionPageState();
@@ -38,15 +41,13 @@ class _DeleteCollectionPageState extends State<DeleteCollectionPage> {
 
             ElevatedButton(
               onPressed: () async {
-                var appState = context.read<MyAppState>();
-
                 if (_deleteController.text.trim() != "DELETE") {
                   print("You must type DELETE");
                   return;
                 }
 
                 try {
-                  var result = await appState.api.deleteCollection("varastoDB");
+                  var result = await ApiService().deleteCollection("varastoDB");
                   print("Delete OK: $result");
                 } catch (e) {
                   print("Error deleting: $e");
