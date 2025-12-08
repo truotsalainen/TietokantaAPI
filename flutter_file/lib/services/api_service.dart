@@ -7,7 +7,7 @@ import '../models/tuote.dart' as tuote_model;
 class ApiService {
   static String get baseUrl {
     //final host = html.window.location.hostname; // gets the current IP/host
-    return 'http://192.168.x.xxx:5000';       ///   PUT YOUR OWN IP
+    return 'http://10.83.16.38:5000/';       ///   PUT YOUR OWN IP
   }
 
   static Future<List<Varasto>> getWarehouses() async {
