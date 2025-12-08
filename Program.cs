@@ -42,8 +42,34 @@ public class Program
         // Listaa kaikki varastot   GET http://localhost:5000/varastot
         app.MapGet("/varastot", () =>
         {
-            var varastot = Varasto.HaeVarastot();
-            return Results.Ok(varastot);
+            try
+            {
+                var varastot = Varasto.HaeVarastot();
+                var kaikkiTuotteet = Varasto.ListaaTuotteet();
+
+                var varastotWithItems = varastot.Select(v => new
+                {
+                    id = v.Id,
+                    nimi = v.Nimi,
+                    items = kaikkiTuotteet
+                            .Where(t => t.VarastoId == v.Id)
+                            .Select(t => new
+                            {
+                                id = t.Id,
+                                tag = t.Tag,
+                                nimi = t.Nimi,
+                                maara = t.Maara,
+                                kunto = t.Kunto
+                            }).ToList()
+                }).ToList();
+
+                return Results.Ok(varastotWithItems);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in /varastot: {ex}");
+                return Results.Problem("Internal server error");
+            }
         });
 
         // Luo uusi varasto ja aseta se aktiiviseksi POST http://localhost:5000/varasto BODY: JSON
@@ -84,6 +110,12 @@ public class Program
             return Results.Ok(aktiivinen);
         });
 
+        //muokkaa varaston nimeä
+        app.MapPut("/varasto/{id}", (int id, VarastoTiedot updated) =>
+        {
+            return Varasto.MuokkaaVarastoNimi(id, updated.Nimi);
+        });
+
         // Listaa tuotteet.
         app.MapGet("/tuote", () =>
         {
@@ -93,8 +125,8 @@ public class Program
         // Lisää uusi tuote.
         app.MapPost("/tuote", (Tuote tuote) =>
         {
-            Varasto.LisaaTuote(tuote.tag, tuote.nimi, tuote.maara, tuote.kunto);
-            return Results.Ok($"Tuote '{tuote.nimi}' lisätty!");
+            Varasto.LisaaTuote(tuote.Tag, tuote.Nimi, tuote.Maara, tuote.Kunto);
+            return Results.Ok($"Tuote '{tuote.Nimi}' lisätty!");
         });
 
         // Etsii tuotteet.
@@ -120,6 +152,26 @@ public class Program
             else
                 return Results.NotFound($"Tuotetta {id} ei löytynyt.");
         });
+
+        // Hae varaston tuotteet GET /varasto/{id}/items
+        app.MapGet("/varasto/{id}/items", (int id) =>
+        {
+            var kaikki = Varasto.ListaaTuotteet();
+            var tuotteet = kaikki
+                .Where(t => t.VarastoId == id)
+                .Select(t => new
+                {
+                    id = t.Id,
+                    tag = t.Tag,
+                    nimi = t.Nimi,
+                    maara = t.Maara,
+                    kunto = t.Kunto
+                })
+                .ToList();
+
+            return Results.Ok(tuotteet);
+        });
+
 
         app.Run();
     }

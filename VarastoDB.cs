@@ -2,8 +2,9 @@ namespace TietokantaAPI;
 
 using System.Data;
 using Microsoft.Data.Sqlite;
+using System.Globalization;
 
-public record Tuote(string tag, string nimi, int maara, string kunto);
+public record Tuote(int Id, string Tag, string Nimi, int Maara, string Kunto, int VarastoId);
 
 public record VarastoTiedot(int Id, string Nimi);
 
@@ -14,8 +15,35 @@ public class VarastoDB
 
     public VarastoDB()
     {
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
 
+        using (var createVarasto = connection.CreateCommand())
+        {
+            createVarasto.CommandText = @"
+                CREATE TABLE IF NOT EXISTS Varastot(
+                    Id INTEGER PRIMARY KEY,
+                    Nimi TEXT
+                );";
+            createVarasto.ExecuteNonQuery();
+        }
+
+        using (var createTuotteet = connection.CreateCommand())
+        {
+            createTuotteet.CommandText = @"
+                CREATE TABLE IF NOT EXISTS Tuotteet (
+                    Id INTEGER PRIMARY KEY,
+                    Tag TEXT,
+                    Nimi TEXT,
+                    Maara INTEGER,
+                    Kunto TEXT,
+                    VarastoId INTEGER,
+                    FOREIGN KEY(VarastoId) REFERENCES Varastot(Id) ON DELETE CASCADE
+                );";
+            createTuotteet.ExecuteNonQuery();
+        }
     }
+
 
     // Lisää tuote varastoon.
     public void LisaaTuote(string tag, string nimi, int maara, string kunto)
@@ -51,7 +79,6 @@ public class VarastoDB
                         int newMaara = oldMaara + maara;
 
                         reader.Close();
-
                         using (var updateCmd = connection.CreateCommand())
                         {
                             updateCmd.CommandText = "UPDATE Tuotteet SET Maara = $Maara WHERE Id = $Id";
@@ -82,7 +109,7 @@ public class VarastoDB
     }
 
     // Poista tuote tietokannasta.
-    public void PoistaTuote(string nimi)
+    public void PoistaTuote(string Nimi)
     {
         using (var connection = new SqliteConnection(_connectionString))
         {
@@ -92,7 +119,7 @@ public class VarastoDB
             deleteItemCmd.CommandText = @"
                 DELETE FROM Tuotteet
                 WHERE Nimi = $Nimi AND VarastoId = $VarastoId;";
-            deleteItemCmd.Parameters.AddWithValue("$Nimi", nimi);
+            deleteItemCmd.Parameters.AddWithValue("$Nimi", Nimi);
             deleteItemCmd.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
             deleteItemCmd.ExecuteNonQuery();
 
@@ -101,7 +128,7 @@ public class VarastoDB
     }
 
 
-    public IResult MuokkaaTuote(int id, Tuote muokattuTuote)
+    public IResult MuokkaaTuote(int Id, Tuote muokattuTuote)
     {
         if (currentVarastoId == null)
             return Results.BadRequest(new { message = "Ei aktiivista varastoa." });
@@ -117,15 +144,15 @@ public class VarastoDB
                 SET Nimi = $Nimi, Maara = $Maara, Tag = $Tag, Kunto = $Kunto
                 WHERE Id = $Id AND VarastoId = $VarastoId";
 
-            updateCmd.Parameters.AddWithValue("$Id", id);
-            updateCmd.Parameters.AddWithValue("$Nimi", muokattuTuote.nimi);
-            updateCmd.Parameters.AddWithValue("$Maara", muokattuTuote.maara);
-            updateCmd.Parameters.AddWithValue("$Tag", muokattuTuote.tag);
-            updateCmd.Parameters.AddWithValue("$Kunto", muokattuTuote.kunto);
+            updateCmd.Parameters.AddWithValue("$Id", Id);
+            updateCmd.Parameters.AddWithValue("$Nimi", muokattuTuote.Nimi);
+            updateCmd.Parameters.AddWithValue("$Maara", muokattuTuote.Maara);
+            updateCmd.Parameters.AddWithValue("$Tag", muokattuTuote.Tag);
+            updateCmd.Parameters.AddWithValue("$Kunto", muokattuTuote.Kunto);
             updateCmd.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
 
             if (updateCmd.ExecuteNonQuery() == 0)
-                return Results.NotFound(new { message = "Tuotetta ei löytynyt" });
+                return Results.NotFound(new { message = "Tuotetta ei löytynyt"});
 
             // Tarkistetaan identtiset tuotteet
             var mergeCmd = connection.CreateCommand();
@@ -133,10 +160,10 @@ public class VarastoDB
                 SELECT Id, Maara FROM Tuotteet
                 WHERE Id != $Id AND Nimi = $Nimi AND Tag = $Tag AND Kunto = $Kunto AND VarastoId = $VarastoId
                 LIMIT 1";
-            mergeCmd.Parameters.AddWithValue("$Id", id);
-            mergeCmd.Parameters.AddWithValue("$Nimi", muokattuTuote.nimi);
-            mergeCmd.Parameters.AddWithValue("$Tag", muokattuTuote.tag);
-            mergeCmd.Parameters.AddWithValue("$Kunto", muokattuTuote.kunto);
+            mergeCmd.Parameters.AddWithValue("$Id", Id);
+            mergeCmd.Parameters.AddWithValue("$Nimi", muokattuTuote.Nimi);
+            mergeCmd.Parameters.AddWithValue("$Tag", muokattuTuote.Tag);
+            mergeCmd.Parameters.AddWithValue("$Kunto", muokattuTuote.Kunto);
             mergeCmd.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
 
             int? vanhaId = null;
@@ -153,7 +180,7 @@ public class VarastoDB
 
             if (vanhaId.HasValue)
             {
-                int combinedMaara = vanhaMaara + muokattuTuote.maara;
+                int combinedMaara = vanhaMaara + muokattuTuote.Maara;
 
                 // Update existing row
                 var updateExisting = connection.CreateCommand();
@@ -165,7 +192,7 @@ public class VarastoDB
                 // Delete the edited row
                 var deleteEdited = connection.CreateCommand();
                 deleteEdited.CommandText = "DELETE FROM Tuotteet WHERE Id = $Id";
-                deleteEdited.Parameters.AddWithValue("$Id", id);
+                deleteEdited.Parameters.AddWithValue("$Id", Id);
                 deleteEdited.ExecuteNonQuery();
 
                 return Results.Ok(new { message = "Muokattu tuote yhdistetty toiseen tuotteeseen." });
@@ -181,11 +208,23 @@ public class VarastoDB
         {
             connection.Open();
 
+            // Register Finnish collation (ä, ö, å sorted correctly)
+            connection.CreateCollation(
+                "FINNISH",
+                (x, y) => string.Compare(
+                    x, 
+                    y, 
+                    new CultureInfo("fi-FI"),
+                    CompareOptions.IgnoreCase
+                )
+            );
+
             var selectTuotteetCmd = connection.CreateCommand();
             selectTuotteetCmd.CommandText = @"
-                SELECT tag, nimi, maara, kunto
+                SELECT Id, Tag, Nimi, Maara, Kunto, VarastoId
                 FROM Tuotteet
-                WHERE VarastoId = $VarastoId;";
+                WHERE VarastoId = $VarastoId
+                ORDER BY Nimi COLLATE FINNISH;";
             selectTuotteetCmd.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
 
             using (var reader = selectTuotteetCmd.ExecuteReader())
@@ -195,10 +234,13 @@ public class VarastoDB
                 while (reader.Read())
                 {
                     tuotteet.Add(new Tuote(
-                        reader.GetString(0),
-                        reader.GetString(1),
-                        reader.GetInt32(2),
-                        reader.GetString(3)));
+                        reader.GetInt32(0),  // Id
+                        reader.GetString(1), // Tag
+                        reader.GetString(2), // Nimi
+                        reader.GetInt32(3),  // Maara
+                        reader.GetString(4), // Kunto
+                        reader.GetInt32(5)   // VarastoId
+                    ));
                 }
                 return tuotteet;
             }
@@ -340,7 +382,6 @@ public class VarastoDB
         }
     }
 
-
     public bool PoistaVarasto(int varastoId)
     {
         using (var connection = new SqliteConnection(_connectionString))
@@ -379,6 +420,24 @@ public class VarastoDB
                 return false;
             }
         }
+    }
+
+    //muokka nimeä
+    public IResult MuokkaaVarastoNimi(int id, string uusiNimi)
+    {
+        using var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+
+        var cmd = connection.CreateCommand();
+        cmd.CommandText = @"UPDATE Varastot SET Nimi = $Nimi WHERE Id = $Id";
+        cmd.Parameters.AddWithValue("$Nimi", uusiNimi);
+        cmd.Parameters.AddWithValue("$Id", id);
+
+        int rows = cmd.ExecuteNonQuery();
+        if (rows == 0)
+            return Results.NotFound(new { message = "Varastoa ei löytynyt" });
+
+        return Results.Ok(new { message = "Varaston nimi päivitetty" });
     }
 
     public bool PoistaTuote(int id)
