@@ -25,7 +25,7 @@ class _EditCollectionPageState extends State<EditCollectionPage> {
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   Future<void> saveName() async {
-    final String baseUrl = "http://192.168.x.xxx:5000";
+    final String baseUrl = "http://127.0.0.1:5000";
     final String newName = nameController.text.trim();
 
     if (newName.isEmpty) {
