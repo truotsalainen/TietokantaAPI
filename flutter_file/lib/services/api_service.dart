@@ -61,5 +61,22 @@ class ApiService {
 
     return response.statusCode == 200;
   }
+  //search items
+  static Future<List<tuote_model.Tuote>> searchItems({
+  required String column,
+  required String value,
+  }) async {
+  final response = await http.get(
+    Uri.parse('$baseUrl/etsituotteet?column=$column&value=$value'),
+  );
+
+  if (response.statusCode != 200) {
+    throw Exception("Failed to search items");
+  }
+
+  final List data = jsonDecode(response.body);
+  return data.map((json) => tuote_model.Tuote.fromJson(json)).toList();
+}
+
 
 }

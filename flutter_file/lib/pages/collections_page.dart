@@ -6,6 +6,7 @@ import '../models/varasto.dart';
 import 'create_collection_page.dart';
 import 'edit_collection_page.dart';
 import 'delete_collection_page.dart';
+import 'search_page.dart';
 
 class CollectionsPage extends StatefulWidget {
   const CollectionsPage({super.key});
@@ -48,6 +49,14 @@ class _CollectionsPageState extends State<CollectionsPage> {
         SnackBar(content: Text("Failed to load warehouses: $e")),
       );
     }
+  }
+  Future<void> runSearch() async {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const SearchPage(), // <-- your search page
+      ),
+    );
   }
 
   @override
@@ -103,11 +112,9 @@ class _CollectionsPageState extends State<CollectionsPage> {
                 children: [
                   // Search button stays as before
                   ElevatedButton(
-                    onPressed: () {
-                      // TODO: implement search functionality
-                    },
-                    child: const Text("Search"),
-                  ),
+                  onPressed: runSearch,
+                child: const Text("Search"),
+                ),
 
                   // New Collection always enabled
                   _buildNavButton(context, "New Collection", const CreateCollectionPage()),
