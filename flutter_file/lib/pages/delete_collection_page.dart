@@ -51,13 +51,25 @@ class _DeleteCollectionPageState extends State<DeleteCollectionPage> {
                   }
 
                   try {
-
                     final api = ApiService();
-                    final result = await api.deleteCollection(widget.collection.id);
-
+                    final result = await api.deleteCollection(
+                      widget.collection.id,
+                    );
+                    
                     print("Delete OK: $result");
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          "Collection deleted successfully: $result",
+                        ),
+                      ),
+                    );
                   } catch (e) {
                     print("Error deleting: $e");
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Error deleting collection: $e")),
+                    );
                   }
                 },
                 child: const Text('Delete collection'),
