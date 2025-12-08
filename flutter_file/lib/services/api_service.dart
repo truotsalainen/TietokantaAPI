@@ -3,63 +3,227 @@ import 'package:http/http.dart' as http;
 import '../models/varasto.dart';
 import '../models/tuote.dart' as tuote_model;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// ========================================
+// ApiService - API:n kanssa kommunikointiin
+// ========================================
+// Tämä palvelu hallitsee kaikki HTTP-pyynnöt back-endin kanssa.
+// Huomio: JWT-token tulee tallentaa secure_storagen (tai muun turvallisuus-ratkaisun) avulla.
+// Tällä hetkellä yksinkertaisesti muuttujassa.
 class ApiService {
   static String get baseUrl {
-    //final host = html.window.location.hostname; // gets the current IP/host
-    return 'http://192.168.x.xxx:5000';       ///   PUT YOUR OWN IP
+    // Korvaa IP-osoite omallasi. Esim. localhost:5000, 192.168.1.100:5000, jne.
+    return 'http://192.168.x.xxx:5000'; // PUT YOUR OWN IP
   }
 
-  static Future<List<Varasto>> getWarehouses() async {
-    final res = await http.get(Uri.parse("$baseUrl/varastot"));
+  // JWT-token tallennetaan muistiin kirjautumisen jälkeen
+  static String? _jwtToken;
 
-    // Debug: print the raw response
-    print('HTTP status: ${res.statusCode}');
+  // Hae tallennettu token
+  static String? getToken() => _jwtToken;
 
-    if (res.statusCode != 200) {
-      throw Exception('Failed to load warehouses: ${res.statusCode}');
+  // Aseta token (kutsutaan login-endpointin jälkeen)
+  static void setToken(String token) {
+    _jwtToken = token;
+  }
+
+  // Tyhjennä token (logout)
+  static void clearToken() {
+    _jwtToken = null;
+  }
+
+  // Apumetodi: Hae header Authorization-tokenilla
+  static Map<String, String> _getHeaders({bool needsAuth = true}) {
+    final headers = {"Content-Type": "application/json"};
+    if (needsAuth && _jwtToken != null) {
+      headers["Authorization"] = "Bearer $_jwtToken";
     }
-    final data = jsonDecode(res.body) as List<dynamic>;
-    final list = data.map((e) => Varasto.fromJson(e)).toList();
-    list.sort((a, b) => a.nimi.toLowerCase().compareTo(b.nimi.toLowerCase()));
-    return list;
+    return headers;
   }
 
-  static Future<void> setActiveWarehouse(int id) async {
-    await http.put(Uri.parse("$baseUrl/varasto/aktiivinen/$id"));
+  // ========================================
+  // AUTENTIKOINTI
+  // ========================================
+
+  /// Rekisteröi uuden käyttäjän
+  static Future<bool> register(String username, String password) async {
+    try {
+      final res = await http.post(
+        Uri.parse("$baseUrl/register"),
+        headers: _getHeaders(needsAuth: false),
+        body: jsonEncode({"username": username, "password": password}),
+      );
+
+      print("Register status: ${res.statusCode}");
+      return res.statusCode == 200;
+    } catch (e) {
+      print("Register error: $e");
+      return false;
+    }
   }
 
+  /// Kirjaudu sisään ja hae JWT-token
+  static Future<bool> login(String username, String password) async {
+    try {
+      final res = await http.post(
+        Uri.parse("$baseUrl/login"),
+        headers: _getHeaders(needsAuth: false),
+        body: jsonEncode({"username": username, "password": password}),
+      );
+
+      print("Login status: ${res.statusCode}");
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final token = data["token"];
+        setToken(token);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print("Login error: $e");
+      return false;
+    }
+  }
+
+  // ========================================
+  // VARASTOT
+  // ========================================
+
+  /// Hae käyttäjän kaikki varastot
+  static Future<List<Varasto>> getWarehouses() async {
+    try {
+      final res = await http.get(
+        Uri.parse("$baseUrl/varastot"),
+        headers: _getHeaders(needsAuth: true),
+      );
+
+      print("Get warehouses status: ${res.statusCode}");
+
+      if (res.statusCode != 200) {
+        throw Exception("Failed to load warehouses: ${res.statusCode}");
+      }
+
+      final data = jsonDecode(res.body) as List<dynamic>;
+      final list = data.map((e) => Varasto.fromJson(e)).toList();
+      list.sort((a, b) => a.nimi.toLowerCase().compareTo(b.nimi.toLowerCase()));
+      return list;
+    } catch (e) {
+      print("Get warehouses error: $e");
+      rethrow;
+    }
+  }
+
+  /// Luo uusi varasto
   static Future<bool> createWarehouse(String name) async {
-    final res = await http.post(
-      Uri.parse("$baseUrl/varasto"),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({"nimi": name}),
-    );
+    try {
+      final res = await http.post(
+        Uri.parse("$baseUrl/varastot"),
+        headers: _getHeaders(needsAuth: true),
+        body: jsonEncode({"nimi": name}),
+      );
 
-    print("Create warehouse status: ${res.statusCode}");
-
-    // Return true if success (200)
-    return res.statusCode == 200;
+      print("Create warehouse status: ${res.statusCode}");
+      return res.statusCode == 200;
+    } catch (e) {
+      print("Create warehouse error: $e");
+      return false;
+    }
   }
 
-  //lataa tuotteita varastoon
-  static Future<List<tuote_model.Tuote>> getItems() async {
-    final res = await http.get(Uri.parse("$baseUrl/tuote"));
-    if (res.statusCode != 200) throw Exception('Failed to load items');
+  /// Poista varasto
+  static Future<bool> deleteWarehouse(int id) async {
+    try {
+      final res = await http.delete(
+        Uri.parse("$baseUrl/varastot/$id"),
+        headers: _getHeaders(needsAuth: true),
+      );
 
-    final data = jsonDecode(res.body) as List<dynamic>;
-    return data.map((e) => tuote_model.Tuote.fromJson(e)).toList();
+      print("Delete warehouse status: ${res.statusCode}");
+      return res.statusCode == 200;
+    } catch (e) {
+      print("Delete warehouse error: $e");
+      return false;
+    }
   }
 
-  //päivittää varaston nimeä
-  static Future<bool> updateWarehouse(int id, String newName) async {
-    final response = await http.put(
-      Uri.parse("$baseUrl/varasto/$id"),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({"id": id, "nimi": newName}),
-    );
+  // ========================================
+  // TUOTTEET
+  // ========================================
 
-    return response.statusCode == 200;
+  /// Hae tuotteet tietystä varastosta
+  static Future<List<tuote_model.Tuote>> getItems(int varastoId) async {
+    try {
+      final res = await http.get(
+        Uri.parse("$baseUrl/varastot/$varastoId/tuotteet"),
+        headers: _getHeaders(needsAuth: true),
+      );
+
+      print("Get items status: ${res.statusCode}");
+
+      if (res.statusCode != 200) {
+        throw Exception("Failed to load items: ${res.statusCode}");
+      }
+
+      final data = jsonDecode(res.body) as List<dynamic>;
+      return data.map((e) => tuote_model.Tuote.fromJson(e)).toList();
+    } catch (e) {
+      print("Get items error: $e");
+      rethrow;
+    }
+  }
+
+  /// Lisää tai päivitä tuotetta
+  static Future<bool> createOrUpdateItem(int varastoId, tuote_model.Tuote tuote) async {
+    try {
+      final res = await http.post(
+        Uri.parse("$baseUrl/varastot/$varastoId/tuotteet"),
+        headers: _getHeaders(needsAuth: true),
+        body: jsonEncode({
+          "tag": tuote.tag,
+          "nimi": tuote.nimi,
+          "maara": tuote.maara,
+          "kunto": tuote.kunto,
+        }),
+      );
+
+      print("Create/update item status: ${res.statusCode}");
+      return res.statusCode == 200;
+    } catch (e) {
+      print("Create/update item error: $e");
+      return false;
+    }
+  }
+
+  /// Poista tuote ID:n perusteella
+  static Future<bool> deleteItem(int varastoId, int tuoteId) async {
+    try {
+      final res = await http.delete(
+        Uri.parse("$baseUrl/varastot/$varastoId/tuotteet/$tuoteId"),
+        headers: _getHeaders(needsAuth: true),
+      );
+
+      print("Delete item status: ${res.statusCode}");
+      return res.statusCode == 200;
+    } catch (e) {
+      print("Delete item error: $e");
+      return false;
+    }
+  }
+
+  /// Poista tuote nimen perusteella
+  static Future<bool> deleteItemByName(int varastoId, String nimi) async {
+    try {
+      final res = await http.delete(
+        Uri.parse("$baseUrl/varastot/$varastoId/tuotteet?tuotteenNimi=$nimi"),
+        headers: _getHeaders(needsAuth: true),
+      );
+
+      print("Delete item by name status: ${res.statusCode}");
+      return res.statusCode == 200;
+    } catch (e) {
+      print("Delete item by name error: $e");
+      return false;
+    }
   }
 
 }
