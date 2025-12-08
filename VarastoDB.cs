@@ -247,19 +247,19 @@ public class VarastoDB
         }
     }
 
-    public List<string> EtsiTuotteet(string column, string value)
+    public List<Tuote> EtsiTuotteet(string column, string value)
     {
         using (var connection = new SqliteConnection(_connectionString))
         {
-            var results = new List<string>();
-
+            var results = new List<Tuote>();
             connection.Open();
 
             var searchItemCommand = connection.CreateCommand();
             searchItemCommand.CommandText = $@"
-                SELECT Nimi, Tag, Kunto
+                SELECT Id, Nimi, Tag, Kunto, Maara, VarastoId
                 FROM Tuotteet
-                WHERE {column} = $Value AND VarastoId = $VarastoId;";
+                WHERE LOWER({column}) = LOWER($Value)
+                AND VarastoId = $VarastoId;";
             searchItemCommand.Parameters.AddWithValue("$Value", value);
             searchItemCommand.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
 
@@ -267,17 +267,20 @@ public class VarastoDB
             {
                 while (reader.Read())
                 {
-                    string nimi = reader.GetString(0);
-                    string tag = reader.GetString(1);
-                    string kunto = reader.GetString(2);
-
-                    results.Add($"{nimi}, {tag}, {kunto}");
+                    results.Add(new Tuote(
+                        reader.GetInt32(0),  // Id
+                        reader.GetString(2), // Tag
+                        reader.GetString(1), // Nimi
+                        reader.GetInt32(4),  // Maara
+                        reader.GetString(3), // Kunto
+                        reader.GetInt32(5)   // VarastoId
+                    ));
                 }
             }
+
             return results;
         }
-
-    }
+}
     public int LuoVarasto(string nimi)
     {
         if (string.IsNullOrWhiteSpace(nimi))

@@ -129,7 +129,7 @@ public class Program
             return Results.Ok($"Tuote '{tuote.Nimi}' lisätty!");
         });
 
-        // Etsii tuotteet.
+        //Etsi tuotteet
         app.MapGet("/etsituotteet", (string column, string value) =>
         {
             var results = Varasto.EtsiTuotteet(column, value);

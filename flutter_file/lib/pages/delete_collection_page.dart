@@ -17,7 +17,7 @@ class _DeleteCollectionPageState extends State<DeleteCollectionPage> {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   Future<void> deleteCollection() async {
-    final String baseUrl = "http://10.83.16.38:5000/";
+    final String baseUrl = "http://10.83.16.38:5000";
 
     if (confirmController.text.trim() != "DELETE") {
       ScaffoldMessenger.of(context).showSnackBar(

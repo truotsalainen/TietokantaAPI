@@ -18,7 +18,7 @@ class _EditItemPageState extends State<EditItemPage> {
   bool isLoading = true;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  final String baseUrl = "http://10.83.16.38:5000/"; // Your API IP
+  final String baseUrl = "http://10.83.16.38:5000"; // Your API IP
 
   @override
   void initState() {

@@ -19,7 +19,7 @@ class _NewItemPageState extends State<NewItemPage> {
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   Future<void> createItem() async {
-    final String baseUrl = "http://10.83.16.38:5000/";
+    final String baseUrl = "http://10.83.16.38:5000";
 
     final String name = nameController.text.trim();
     final String quantity = quantityController.text.trim();
