@@ -255,35 +255,28 @@ public class VarastoDB
     {
         using (var connection = new SqliteConnection(_connectionString))
         {
-            var results = new List<Tuote>();
             connection.Open();
-            var cmd = connection.CreateCommand();
-            cmd.CommandText = "SELECT Id, Nimi FROM Varastot WHERE UserId = @UserId";
-            cmd.Parameters.AddWithValue("@UserId", userId);
-
-            var searchItemCommand = connection.CreateCommand();
-            searchItemCommand.CommandText = $@"
-                SELECT Id, Nimi, Tag, Kunto, Maara, VarastoId
-                FROM Tuotteet
-                WHERE LOWER({column}) = LOWER($Value)
-                AND VarastoId = $VarastoId;";
-            searchItemCommand.Parameters.AddWithValue("$Value", value);
-            searchItemCommand.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
-
-            while (reader.Read())
+            var results = new List<VarastoTiedot>();
+            
+            using (var cmd = connection.CreateCommand())
             {
-                while (reader.Read())
+                cmd.CommandText = "SELECT Id, Nimi FROM Varastot WHERE UserId = @UserId ORDER BY Nimi";
+                cmd.Parameters.AddWithValue("@UserId", userId);
+
+                using (var reader = cmd.ExecuteReader())
                 {
-                    results.Add(new Tuote(
-                        reader.GetInt32(0),  // Id
-                        reader.GetString(2), // Tag
-                        reader.GetString(1), // Nimi
-                        reader.GetInt32(4),  // Maara
-                        reader.GetString(3), // Kunto
-                        reader.GetInt32(5)   // VarastoId
-                    ));
+                    while (reader.Read())
+                    {
+                        results.Add(new VarastoTiedot(
+                            reader.GetInt32(0),  // Id
+                            reader.GetString(1)  // Nimi
+                        ));
+                    }
                 }
             }
+            return results;
+        }
+    }
 
     // Poista varasto (Program.cs vaatii tämän)
     // Poistaa varaston, jos se kuuluu annetulle käyttäjälle. Palauttaa true jos poistettiin.

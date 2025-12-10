@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import '../services/api_service.dart';
 import '../models/varasto.dart';
 
@@ -12,39 +13,19 @@ class DeleteCollectionPage extends StatefulWidget {
 }
 
 class _DeleteCollectionPageState extends State<DeleteCollectionPage> {
-  final TextEditingController confirmController = TextEditingController();
+  late TextEditingController _deleteController;
   bool isDeleting = false;
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  Future<void> deleteCollection() async {
-    final String baseUrl = "http://10.83.16.38:5000";
+  @override
+  void initState() {
+    super.initState();
+    _deleteController = TextEditingController();
+  }
 
-    if (confirmController.text.trim() != "DELETE") {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Type DELETE exactly to confirm")),
-      );
-      return;
-    }
-
-    setState(() => isDeleting = true);
-
-    final response =
-        await http.delete(Uri.parse("$baseUrl/varasto/${widget.collection.id}"));
-
-    setState(() => isDeleting = false);
-
-    if (response.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Collection deleted successfully")),
-      );
-
-      // DO NOT POP ANYTHING AUTOMATICALLY
-      // User will manually press Return
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed: ${response.statusCode}")),
-      );
-    }
+  @override
+  void dispose() {
+    _deleteController.dispose();
+    super.dispose();
   }
 
   @override
@@ -79,33 +60,57 @@ class _DeleteCollectionPageState extends State<DeleteCollectionPage> {
               ElevatedButton(
                 onPressed: () async {
                   if (_deleteController.text.trim() != "DELETE") {
-                    print("You must type DELETE");
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Kirjoita DELETE vahvistukseksi")),
+                    );
                     return;
                   }
 
-                  try {
-                    final api = ApiService();
-                    final result = await api.deleteCollection(
-                      widget.collection.id,
-                    );
-                    
-                    print("Delete OK: $result");
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          "Collection deleted successfully: $result",
-                        ),
-                      ),
-                    );
-                  } catch (e) {
-                    print("Error deleting: $e");
+                  setState(() => isDeleting = true);
 
+                  try {
+                    final response = await http.delete(
+                      Uri.parse("${ApiService.baseUrl}/varastot/${widget.collection.id}"),
+                      headers: {
+                        "Authorization": "Bearer ${ApiService.getToken()}",
+                      },
+                    );
+
+                    setState(() => isDeleting = false);
+
+                    if (!mounted) return;
+
+                    if (response.statusCode == 200) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Varasto poistettu onnistuneesti"),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                      Future.delayed(const Duration(seconds: 1), () {
+                        if (mounted) Navigator.of(context).pop(true);
+                      });
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Virhe: ${response.statusCode}")),
+                      );
+                    }
+                  } catch (e) {
+                    setState(() => isDeleting = false);
+                    if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Error deleting collection: $e")),
+                      SnackBar(content: Text("Virhe: $e")),
                     );
                   }
                 },
-                child: const Text('Delete collection'),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: isDeleting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Poista varasto'),
               ),
             ],
           ),
