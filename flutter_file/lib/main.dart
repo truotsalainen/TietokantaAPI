@@ -75,7 +75,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 // Fetch items asynchronously
                 List<tuote_model.Tuote> items = [];
                 try {
-                  items = await ApiService.getItems();
+                  items = await ApiService.getItems(appState.selectedWarehouseId!);
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(

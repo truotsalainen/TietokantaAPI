@@ -26,6 +26,12 @@ public class VarastoDB
 {
     private readonly string _connectionString;
 
+    // VarastoDB vastaa SQLite-yhteyksistä ja CRUD-operaatioista
+    // - Luodaan taulut tarvittaessa
+    // - Suoritetaan parametrisoituja kyselyitä
+    // - Sisältää omistajuustarkistukset (CheckVarastoOwnership)
+    // Kommentit ovat suomeksi selkeyden vuoksi.
+
     // Asetetaan yhteyden polku Program.cs:stä (esim. "varasto.db")
     public VarastoDB(string dbPath)
     {
@@ -36,6 +42,9 @@ public class VarastoDB
     // ----------------------------------------
     // 🛢️ Yleinen apumetodi tietokannan alustukseen
     // ----------------------------------------
+    // Luo tarvittavat taulut, jos niitä ei vielä ole.
+    // Tämä metodi kutsutaan konstruktorissa, joten sovellus varmistaa
+    // että DB on käyttövalmis heti luokan instansoinnin jälkeen.
     private void InitializeDatabase()
     {
         using (var connection = new SqliteConnection(_connectionString))
@@ -49,7 +58,8 @@ public class VarastoDB
                     CREATE TABLE IF NOT EXISTS Users(
                         Id INTEGER PRIMARY KEY,
                         Username TEXT UNIQUE NOT NULL,
-                        PasswordHash TEXT NOT NULL
+                        PasswordHash TEXT NOT NULL,
+                        IsAdmin INTEGER NOT NULL DEFAULT 0
                     );";
                 createUsers.ExecuteNonQuery();
             }
@@ -82,6 +92,32 @@ public class VarastoDB
                     );";
                 createTuotteetTableCmd.ExecuteNonQuery();
             }
+
+            // Siemenen data: Luo vakio-admin jos Users-taulu on tyhjä
+            using (var checkUsersCmd = connection.CreateCommand())
+            {
+                checkUsersCmd.CommandText = "SELECT COUNT(*) FROM Users;";
+                var count = (long?)checkUsersCmd.ExecuteScalar() ?? 0;
+
+                if (count == 0)
+                {
+                    // Luo admin-käyttäjä ja tallenna hashattu salasana
+                    // BCrypt hash: admin123 (tuotetussa ympäristössä muuta tämä)
+                    var adminPasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123");
+                    
+                    using (var seedCmd = connection.CreateCommand())
+                    {
+                        seedCmd.CommandText = @"
+                            INSERT INTO Users (Username, PasswordHash, IsAdmin)
+                            VALUES (@Username, @PasswordHash, @IsAdmin);";
+                        seedCmd.Parameters.AddWithValue("@Username", "admin");
+                        seedCmd.Parameters.AddWithValue("@PasswordHash", adminPasswordHash);
+                        seedCmd.Parameters.AddWithValue("@IsAdmin", 1);
+                        seedCmd.ExecuteNonQuery();
+                    }
+                    Console.WriteLine("✓ Admin-käyttäjä luotu: admin / admin123");
+                }
+            }
         }
     }
 
@@ -90,6 +126,9 @@ public class VarastoDB
     // ----------------------------------------
 
     // Hae käyttäjä
+    // Hakee käyttäjän käyttäjänimen perusteella.
+    // Palauttaa `User`-objektin jos löytyy, muuten `null`.
+    // HUOM: Metodi palauttaa myös PasswordHash-kentän, joka tulee käsitellä turvallisesti.
     public User? GetUser(string username)
     {
         using (var connection = new SqliteConnection(_connectionString))
@@ -114,18 +153,57 @@ public class VarastoDB
     }
 
     // Lisää uusi käyttäjä
-    public void AddUser(string username, string password)
+    // Huom: metodi vastaanottaa valmiiksi hashatun salasanan (`passwordHash`).
+    // Hashaaminen tehdään korkeammalla tasolla (esim. AuthService), älä tallenna raakatekstiä.
+    // Heittää poikkeuksen, jos käyttäjänimi rikkoo UNIQUE-rajoitetta.
+    public void AddUser(string username, string passwordHash, bool isAdmin = false)
     {
         using (var connection = new SqliteConnection(_connectionString))
         {
             connection.Open();
             using (var cmd = connection.CreateCommand())
             {
-                // Huom: Käytännössä salasana pitäisi hashata, tässä käytetään salaamatonta tekstiä Program.cs:n takia.
-                cmd.CommandText = "INSERT INTO Users (Username, PasswordHash) VALUES (@Username, @PasswordHash)";
+                // Tallenna vastaanotettu (hashattu) salasana turvallisesti.
+                cmd.CommandText = "INSERT INTO Users (Username, PasswordHash, IsAdmin) VALUES (@Username, @PasswordHash, @IsAdmin)";
                 cmd.Parameters.AddWithValue("@Username", username);
-                cmd.Parameters.AddWithValue("@PasswordHash", password); 
+                cmd.Parameters.AddWithValue("@PasswordHash", passwordHash);
+                cmd.Parameters.AddWithValue("@IsAdmin", isAdmin ? 1 : 0);
                 cmd.ExecuteNonQuery();
+            }
+        }
+    }
+
+    // Tarkista onko käyttäjä admin
+    // Lukee IsAdmin-sarakkeen arvon suoraan tietokannasta
+    public bool IsUserAdmin(int userId)
+    {
+        using (var connection = new SqliteConnection(_connectionString))
+        {
+            connection.Open();
+            using (var cmd = connection.CreateCommand())
+            {
+                cmd.CommandText = "SELECT IsAdmin FROM Users WHERE Id = @Id LIMIT 1";
+                cmd.Parameters.AddWithValue("@Id", userId);
+                var result = cmd.ExecuteScalar();
+                if (result == null) return false;
+                return Convert.ToInt32(result) != 0;
+            }
+        }
+    }
+
+    // Poista käyttäjä Id:n perusteella (palauttaa true jos poistettiin)
+    // Poistaa käyttäjän ja jättää FOREIGN KEY -rajoitteiden ansiosta mahdollisesti
+    // linkitetyt rivit (esim. varastot/tuotteet) poistettavaksi, mikäli ON DELETE CASCADE on määritelty.
+    public bool DeleteUserById(int userId)
+    {
+        using (var connection = new SqliteConnection(_connectionString))
+        {
+            connection.Open();
+            using (var cmd = connection.CreateCommand())
+            {
+                cmd.CommandText = "DELETE FROM Users WHERE Id = @Id";
+                cmd.Parameters.AddWithValue("@Id", userId);
+                return cmd.ExecuteNonQuery() > 0;
             }
         }
     }
@@ -135,6 +213,8 @@ public class VarastoDB
     // ----------------------------------------
 
     // Tarkista varaston omistajuus
+    // Toteuttaa omistajuustarkistuksen: palauttaa true jos annettu `userId` omistaa varaston `varastoId`.
+    // Käytetään ennen muokkaus/poisto-operaatioita, jotta estetään luvaton pääsy.
     private bool CheckVarastoOwnership(int varastoId, int userId)
     {
         using (var connection = new SqliteConnection(_connectionString))
@@ -151,6 +231,8 @@ public class VarastoDB
     }
 
     // Luo uusi varasto (Program.cs vaatii tämän)
+    // Luo uusi varasto ja palauttaa luodun rivin Id:n.
+    // Asettaa Varasto.UserId:ksi kutsuhetkellä annetun `userId`-arvon.
     public int LuoVarasto(string nimi, int userId)
     {
         using (var connection = new SqliteConnection(_connectionString))
@@ -167,44 +249,38 @@ public class VarastoDB
         }
     }
 
-    public List<Tuote> EtsiTuotteet(string column, string value)
+    // Hae käyttäjän kaikki varastot (Program.cs vaatii tämän)
+    // Palauttaa listan käyttäjän varastoista (`VarastoTiedot`).
+    public List<VarastoTiedot> GetVarastot(int userId)
     {
         using (var connection = new SqliteConnection(_connectionString))
         {
-            var results = new List<Tuote>();
             connection.Open();
-            var cmd = connection.CreateCommand();
-            cmd.CommandText = "SELECT Id, Nimi FROM Varastot WHERE UserId = @UserId";
-            cmd.Parameters.AddWithValue("@UserId", userId);
-
-            var searchItemCommand = connection.CreateCommand();
-            searchItemCommand.CommandText = $@"
-                SELECT Id, Nimi, Tag, Kunto, Maara, VarastoId
-                FROM Tuotteet
-                WHERE LOWER({column}) = LOWER($Value)
-                AND VarastoId = $VarastoId;";
-            searchItemCommand.Parameters.AddWithValue("$Value", value);
-            searchItemCommand.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
-
-            while (reader.Read())
+            var results = new List<VarastoTiedot>();
+            
+            using (var cmd = connection.CreateCommand())
             {
-                while (reader.Read())
+                cmd.CommandText = "SELECT Id, Nimi FROM Varastot WHERE UserId = @UserId ORDER BY Nimi";
+                cmd.Parameters.AddWithValue("@UserId", userId);
+
+                using (var reader = cmd.ExecuteReader())
                 {
-                    results.Add(new Tuote(
-                        reader.GetInt32(0),  // Id
-                        reader.GetString(2), // Tag
-                        reader.GetString(1), // Nimi
-                        reader.GetInt32(4),  // Maara
-                        reader.GetString(3), // Kunto
-                        reader.GetInt32(5)   // VarastoId
-                    ));
+                    while (reader.Read())
+                    {
+                        results.Add(new VarastoTiedot(
+                            reader.GetInt32(0),  // Id
+                            reader.GetString(1)  // Nimi
+                        ));
+                    }
                 }
             }
-
             return results;
         }
-}
-    public int LuoVarasto(string nimi)
+    }
+
+    // Poista varasto (Program.cs vaatii tämän)
+    // Poistaa varaston, jos se kuuluu annetulle käyttäjälle. Palauttaa true jos poistettiin.
+    public bool PoistaVarasto(int varastoId, int userId)
     {
         if (!CheckVarastoOwnership(varastoId, userId))
         {
@@ -229,6 +305,8 @@ public class VarastoDB
     // ----------------------------------------
 
     // Hae tuotteet varastosta (Program.cs vaatii tämän)
+    // Hakee kaikki tuotteet tietystä varastosta. Heittää UnauthorizedAccessExceptionin
+    // jos käyttäjällä ei ole oikeutta kyseiseen varastoon.
     public List<Tuote> HaeTuotteet(int varastoId, int userId)
     {
         if (!CheckVarastoOwnership(varastoId, userId))
@@ -263,6 +341,8 @@ public class VarastoDB
     }
 
     // Lisää tai päivitä tuote (Program.cs vaatii tämän)
+    // Lisää uusi tuote tai päivittää määrää, jos sama tuote (Tag+Nimi+Kunto) löytyy.
+    // Metodi on idempotentti lisäystensä osalta: toistuva kutsu kasvattaa määrää.
     public void LisaaTaiPaivitaTuote(int varastoId, Tuote tuote, int userId)
     {
         if (!CheckVarastoOwnership(varastoId, userId))
@@ -326,6 +406,7 @@ public class VarastoDB
     }
     
     // Muokkaa tuotetta ID:n perusteella (Program.cs vaatii tämän)
+    // Päivittää tuotteen kentät annetulla `Tuote`-objektilla. Palauttaa true jos rivi löytyi.
     public bool MuokkaaTuote(int tuoteId, int varastoId, Tuote tuote, int userId)
     {
         if (!CheckVarastoOwnership(varastoId, userId))
@@ -355,6 +436,7 @@ public class VarastoDB
     }
 
     // Poista tuote ID:n perusteella (Program.cs vaatii tämän)
+    // Poistaa tuotteen Id:n perusteella. Palauttaa true jos rivi poistettiin.
     public bool PoistaTuote(int tuoteId, int varastoId, int userId)
     {
         if (!CheckVarastoOwnership(varastoId, userId))
@@ -376,6 +458,8 @@ public class VarastoDB
     }
     
     // Poista tuote/tuotteet NIMEN perusteella (Program.cs vaatii tämän)
+    // Poista tuote/tuotteet NIMEN perusteella (voi poistaa useamman rivin).
+    // Heittää KeyNotFoundExceptionin jos yhtään riviä ei löytynyt.
     public void PoistaTuote(string nimi, int varastoId, int userId) 
     { 
         if (!CheckVarastoOwnership(varastoId, userId))

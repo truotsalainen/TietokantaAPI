@@ -6,44 +6,48 @@ using Microsoft.AspNetCore.Authorization;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Builder;
 using TietokantaAPI;
+using TietokantaAPI.Services;
 
 // ========================================
-// 🚀 API-KÄYNNISTYS
+// 📌 Program.cs - Sovelluksen käynnistys ja endpointit
 // ========================================
+// Tässä tiedostossa määritellään sovelluksen DI, JWT-asetukset,
+// middlewaret sekä kaikki Minimal API -endpointit.
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// ----------------------------------------
-// 🛢 VarastoDB
-// ----------------------------------------
-builder.Services.AddSingleton(sp =>
-{
-    // Luo tietokannan polku
-    string dbPath = Path.Combine(AppContext.BaseDirectory, "varasto.db");
-    // Huom: Käytetään nyt VarastoDB-luokkaa, joka on määritelty yllä
-    return new VarastoDB(dbPath);
-});
+// Rekisteröidään palvelut
+builder.Services.AddSingleton<IAuthService, AuthService>();
+builder.Services.AddSingleton<JwtService>();
 
-// ----------------------------------------
-// 🔐 JWT-asetukset
-// ----------------------------------------
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "SuperSecretKey1234567890"; 
+// ========================================
+// 🛢️ TIETOKANNAN REKISTERÖINTI
+// ========================================
+var dbPath = Path.Combine(AppContext.BaseDirectory, "varasto.db");
+var db = new VarastoDB(dbPath);
+builder.Services.AddSingleton(db);
+
+// ========================================
+// 🔑 JWT-KONFIGURAATIO
+// ========================================
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "b7f9a3c4d5e6f1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6";
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "VarastoAPI";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "VarastoClient";
 
 var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
 
-// Validate key length for HS256: must be at least 256 bits (32 bytes)
 if (keyBytes.Length < 32)
 {
-    // Provide a clear startup error explaining how to fix the configuration
-    throw new InvalidOperationException($"JWT key is too short ({keyBytes.Length * 8} bits). " +
-        "HS256 requires a key of at least 256 bits (32 characters when using UTF8 ASCII). " +
-        "Set configuration 'Jwt:Key' to a sufficiently long secret (e.g. 32+ characters) in appsettings.json.");
+    throw new InvalidOperationException(
+        $"VIRHE: JWT key on liian lyhyt ({keyBytes.Length * 8} bittia). " +
+        $"HS256 vaatii vähintään 256-bittisen avaimen (32 merkkiä UTF8 ASCII). " +
+        $"Aseta 'Jwt:Key' appsettings.json:issa riittävän pitkäksi.");
 }
 
+// Konfiguroi autentikaatio ja autorisaatio
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -61,30 +65,39 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
+// ========================================
+// 🌐 CORS-KONFIGURAATIO (Flutter & Web-asiakkaille)
+// ========================================
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", builder =>
+    {
+        builder
+            .AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader();
+    });
+});
+
 var app = builder.Build();
 
-// ----------------------------------------
-// Swagger
-// ----------------------------------------
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+app.UseCors("AllowAll");
+
 app.UseAuthentication();
 app.UseAuthorization();
 
-// ----------------------------------------
 // Apumetodi userId:n hakemiseen tokenista
-// ----------------------------------------
 int GetUserId(HttpContext ctx)
 {
     var userIdClaim = ctx.User.FindFirst("userId");
     if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
     {
-        // Jos userId-claim puuttuu tai on virheellinen (ei saisi tapahtua Authorize-attribuutilla),
-        // heitetään poikkeus.
         throw new UnauthorizedAccessException("Käyttäjätunnusta ei löytynyt tokenista.");
     }
     return userId;
@@ -94,43 +107,26 @@ int GetUserId(HttpContext ctx)
 // 👤 KÄYTTÄJÄT (REGISTER & LOGIN)
 // ========================================
 
-app.MapPost("/register", (VarastoDB db, RegisterRequest req) =>
+app.MapPost("/register", (VarastoDB db, IAuthService authService, RegisterRequest req) =>
 {
     var existing = db.GetUser(req.Username);
     if (existing is not null)
         return Results.Conflict("Käyttäjä on jo olemassa.");
 
-    db.AddUser(req.Username, req.Password);
+    string hashedPassword = authService.HashPassword(req.Password);
+    db.AddUser(req.Username, hashedPassword);
     return Results.Ok("Käyttäjä luotu.");
 });
 
-app.MapPost("/login", (VarastoDB db, LoginRequest req) =>
+app.MapPost("/login", (VarastoDB db, IAuthService authService, JwtService jwtService, LoginRequest req) =>
 {
     var user = db.GetUser(req.Username);
-    // Huom: Käytännössä tarkistettaisiin salasanahash
-    if (user is null || user.Value.PasswordHash != req.Password)
+    if (user is null || !authService.VerifyPassword(req.Password, user.Value.PasswordHash))
         return Results.Unauthorized();
 
-    var claims = new[]
-    {
-        new Claim("userId", user.Value.Id.ToString()),
-        new Claim(ClaimTypes.Name, req.Username)
-    };
-
-    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
-    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-    var token = new JwtSecurityToken(
-        issuer: jwtIssuer,
-        audience: null,
-        claims: claims,
-        expires: DateTime.UtcNow.AddHours(6),
-        signingCredentials: creds
-    );
-
-    string jwt = new JwtSecurityTokenHandler().WriteToken(token);
-
-    return Results.Ok(new { token = jwt });
+    var uv = user.Value;
+    string token = jwtService.GenerateToken(uv.Id, uv.Username);
+    return Results.Ok(new { token });
 });
 
 // ========================================
@@ -164,8 +160,7 @@ app.MapDelete("/varastot/{id}", [Authorize] (HttpContext ctx, VarastoDB db, int 
 // 📦 TUOTTEET
 // ========================================
 
-app.MapGet("/varastot/{varastoId}/tuotteet", 
-[Authorize] (HttpContext ctx, VarastoDB db, int varastoId) =>
+app.MapGet("/varastot/{varastoId}/tuotteet", [Authorize] (HttpContext ctx, VarastoDB db, int varastoId) =>
 {
     try
     {
@@ -178,8 +173,7 @@ app.MapGet("/varastot/{varastoId}/tuotteet",
     }
 });
 
-app.MapPost("/varastot/{varastoId}/tuotteet",
-[Authorize] (HttpContext ctx, VarastoDB db, int varastoId, Tuote tuote) =>
+app.MapPost("/varastot/{varastoId}/tuotteet", [Authorize] (HttpContext ctx, VarastoDB db, int varastoId, Tuote tuote) =>
 {
     try
     {
@@ -193,26 +187,24 @@ app.MapPost("/varastot/{varastoId}/tuotteet",
     }
 });
 
-app.MapPut("/varastot/{varastoId}/tuotteet/{tuoteId}",
-[Authorize] (HttpContext ctx, VarastoDB db, int varastoId, int tuoteId, Tuote tuote) =>
+app.MapPut("/varastot/{varastoId}/tuotteet/{tuoteId}", [Authorize] (HttpContext ctx, VarastoDB db, int varastoId, int tuoteId, Tuote tuote) =>
 {
     try
     {
         int userId = GetUserId(ctx);
         bool ok = db.MuokkaaTuote(tuoteId, varastoId, tuote, userId);
 
-        //Etsi tuotteet
-        app.MapGet("/etsituotteet", (string column, string value) =>
-        {
-            var results = Varasto.EtsiTuotteet(column, value);
-            return Results.Ok(results);
-        });
+        return ok
+            ? Results.Ok("Tuote päivitetty.")
+            : Results.NotFound("Tuotetta ei löytynyt.");
+    }
+    catch (UnauthorizedAccessException)
+    {
+        return Results.Unauthorized();
+    }
+});
 
-// ----------------------------------------
-// 🗑️ 1. Poisto ID:n perusteella (suositeltu)
-// ----------------------------------------
-app.MapDelete("/varastot/{varastoId}/tuotteet/{tuoteId}",
-[Authorize] (HttpContext ctx, VarastoDB db, int varastoId, int tuoteId) =>
+app.MapDelete("/varastot/{varastoId}/tuotteet/{tuoteId}", [Authorize] (HttpContext ctx, VarastoDB db, int varastoId, int tuoteId) =>
 {
     try
     {
@@ -229,35 +221,20 @@ app.MapDelete("/varastot/{varastoId}/tuotteet/{tuoteId}",
     }
 });
 
-
-// ----------------------------------------
-// 🗑️ 2. Poisto NIMEN perusteella (Kuten pyysit: PoistaTuote(string nimi))
-// ----------------------------------------
-// Endpoint: DELETE /varastot/{varastoId}/tuotteet?nimi=esimerkkituote
-app.MapDelete("/varastot/{varastoId}/tuotteet",
-[Authorize] (HttpContext ctx, VarastoDB db, int varastoId, string? nimi) =>
+app.MapDelete("/varastot/{varastoId}/tuotteet", [Authorize] (HttpContext ctx, VarastoDB db, int varastoId, string? tuotteenNimi) =>
 {
-    if (string.IsNullOrWhiteSpace(nimi))
-    {
+    if (string.IsNullOrWhiteSpace(tuotteenNimi))
         return Results.BadRequest(new { message = "Tuotteen nimi puuttuu." });
-    }
-    
+
     try
     {
         int userId = GetUserId(ctx);
-        
-        // Kutsutaan metodia, joka käyttää tuotteen nimeä (string) poistoon
-        db.PoistaTuote(nimi, varastoId, userId); 
-        
-        return Results.Ok(new { message = $"Tuote(et) nimeltä '{nimi}' poistettu varastosta {varastoId}." });
+        db.PoistaTuote(tuotteenNimi, varastoId, userId);
+        return Results.Ok(new { message = $"Tuote nimeltä '{tuotteenNimi}' poistettu varastosta {varastoId}." });
     }
     catch (UnauthorizedAccessException)
     {
         return Results.Unauthorized();
-    }
-    catch (KeyNotFoundException ex)
-    {
-        return Results.NotFound(new { message = ex.Message });
     }
     catch (Exception ex)
     {
@@ -265,5 +242,30 @@ app.MapDelete("/varastot/{varastoId}/tuotteet",
     }
 });
 
+app.MapDelete("/admin/users/{userIdToDelete}", [Authorize] (HttpContext ctx, VarastoDB db, int userIdToDelete) =>
+{
+    try
+    {
+        int adminId = GetUserId(ctx);
+        if (!db.IsUserAdmin(adminId))
+            return Results.Forbid();
+
+        if (adminId == userIdToDelete)
+            return Results.BadRequest(new { message = "Et voi poistaa omaa tunnustasi." });
+
+        bool deleted = db.DeleteUserById(userIdToDelete);
+        return deleted
+            ? Results.Ok(new { message = $"Käyttäjä {userIdToDelete} poistettu." })
+            : Results.NotFound(new { message = "Käyttäjää ei löytynyt." });
+    }
+    catch (UnauthorizedAccessException)
+    {
+        return Results.Unauthorized();
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
 
 app.Run();
