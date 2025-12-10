@@ -2,247 +2,167 @@ namespace TietokantaAPI;
 
 using System.Data;
 using Microsoft.Data.Sqlite;
-using System.Globalization;
+using System.Text;
 
-public record Tuote(int Id, string Tag, string Nimi, int Maara, string Kunto, int VarastoId);
+// ========================================
+// TIETUEET
+// ========================================
 
+public record Tuote(string tag, string nimi, int maara, string kunto);
 public record VarastoTiedot(int Id, string Nimi);
+
+// Käyttäjätietue (Program.cs tarvitsee tämän kääntyäkseen)
+public record User(int Id, string Username, string PasswordHash)
+{
+    // Käytetään arvoa, jotta se toimii Program.cs:n kanssa
+    public (int Id, string Username, string PasswordHash) Value => (Id, Username, PasswordHash);
+}
+
+// ========================================
+// TIETOKANTALUOKKA
+// ========================================
 
 public class VarastoDB
 {
-    private static string _connectionString = "Data Source=VarastoDB.db";
-    private int? currentVarastoId = null; // Valittu varasto.
+    private readonly string _connectionString;
 
-    public VarastoDB()
+    // Asetetaan yhteyden polku Program.cs:stä (esim. "varasto.db")
+    public VarastoDB(string dbPath)
     {
-        using var connection = new SqliteConnection(_connectionString);
-        connection.Open();
-
-        using (var createVarasto = connection.CreateCommand())
-        {
-            createVarasto.CommandText = @"
-                CREATE TABLE IF NOT EXISTS Varastot(
-                    Id INTEGER PRIMARY KEY,
-                    Nimi TEXT
-                );";
-            createVarasto.ExecuteNonQuery();
-        }
-
-        using (var createTuotteet = connection.CreateCommand())
-        {
-            createTuotteet.CommandText = @"
-                CREATE TABLE IF NOT EXISTS Tuotteet (
-                    Id INTEGER PRIMARY KEY,
-                    Tag TEXT,
-                    Nimi TEXT,
-                    Maara INTEGER,
-                    Kunto TEXT,
-                    VarastoId INTEGER,
-                    FOREIGN KEY(VarastoId) REFERENCES Varastot(Id) ON DELETE CASCADE
-                );";
-            createTuotteet.ExecuteNonQuery();
-        }
+        _connectionString = $"Data Source={dbPath}";
+        InitializeDatabase();
     }
 
-
-    // Lisää tuote varastoon.
-    public void LisaaTuote(string tag, string nimi, int maara, string kunto)
+    // ----------------------------------------
+    // 🛢️ Yleinen apumetodi tietokannan alustukseen
+    // ----------------------------------------
+    private void InitializeDatabase()
     {
-        if (currentVarastoId == null)
-        {
-            throw new InvalidOperationException("Et ole valinnut varastoa. Lataa varasto ensin. ");
-        }
-
         using (var connection = new SqliteConnection(_connectionString))
         {
             connection.Open();
 
-            // Etsi onko tuote jo olemassa tässä varastossa.
-            using (var checkCmd = connection.CreateCommand())
+            // 1. Users table (Käyttäjät)
+            using (var createUsers = connection.CreateCommand())
             {
-                checkCmd.CommandText = @"
-                SELECT Id, Maara
-                FROM Tuotteet
-                WHERE Tag = $Tag AND Nimi = $Nimi AND Kunto = $Kunto AND VarastoId = $VarastoId
-                LIMIT 1;";
-                checkCmd.Parameters.AddWithValue("$Tag", tag);
-                checkCmd.Parameters.AddWithValue("$Nimi", nimi);
-                checkCmd.Parameters.AddWithValue("$Kunto", kunto);
-                checkCmd.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
+                createUsers.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS Users(
+                        Id INTEGER PRIMARY KEY,
+                        Username TEXT UNIQUE NOT NULL,
+                        PasswordHash TEXT NOT NULL
+                    );";
+                createUsers.ExecuteNonQuery();
+            }
 
-                using (var reader = checkCmd.ExecuteReader())
+            // 2. Varastot table (Linkitetty käyttäjiin)
+            using (var createVarasto = connection.CreateCommand())
+            {
+                createVarasto.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS Varastot(
+                        Id INTEGER PRIMARY KEY,
+                        Nimi TEXT NOT NULL,
+                        UserId INTEGER NOT NULL,
+                        FOREIGN KEY(UserId) REFERENCES Users(Id) ON DELETE CASCADE
+                    );";
+                createVarasto.ExecuteNonQuery();
+            }
+
+            // 3. Tuotteet table (Linkitetty varastoihin)
+            using (var createTuotteetTableCmd = connection.CreateCommand())
+            {
+                createTuotteetTableCmd.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS Tuotteet (
+                        Id INTEGER PRIMARY KEY,
+                        Tag TEXT,
+                        Nimi TEXT NOT NULL,
+                        Maara INTEGER NOT NULL,
+                        Kunto TEXT,
+                        VarastoId INTEGER NOT NULL,
+                        FOREIGN KEY(VarastoId) REFERENCES Varastot(Id) ON DELETE CASCADE
+                    );";
+                createTuotteetTableCmd.ExecuteNonQuery();
+            }
+        }
+    }
+
+    // ----------------------------------------
+    // 🔐 Autentikointi
+    // ----------------------------------------
+
+    // Hae käyttäjä
+    public User? GetUser(string username)
+    {
+        using (var connection = new SqliteConnection(_connectionString))
+        {
+            connection.Open();
+            using (var cmd = connection.CreateCommand())
+            {
+                // Huom: Käytännössä PasswordHashia ei koskaan pitäisi hakea näin
+                cmd.CommandText = "SELECT Id, Username, PasswordHash FROM Users WHERE Username = @Username LIMIT 1";
+                cmd.Parameters.AddWithValue("@Username", username);
+
+                using (var reader = cmd.ExecuteReader())
                 {
                     if (reader.Read())
                     {
-                        int id = reader.GetInt32(0);
-                        int oldMaara = reader.GetInt32(1);
-                        int newMaara = oldMaara + maara;
-
-                        reader.Close();
-                        using (var updateCmd = connection.CreateCommand())
-                        {
-                            updateCmd.CommandText = "UPDATE Tuotteet SET Maara = $Maara WHERE Id = $Id";
-                            updateCmd.Parameters.AddWithValue("$Maara", newMaara);
-                            updateCmd.Parameters.AddWithValue("$Id", id);
-                            updateCmd.ExecuteNonQuery();
-                        }
-
-                        return;
+                        return new User(reader.GetInt32(0), reader.GetString(1), reader.GetString(2));
                     }
+                    return null;
                 }
-            }
-
-            // Lisää uusi tuote.
-            using (var insertCmd = connection.CreateCommand())
-            {
-                insertCmd.CommandText = @"
-                INSERT INTO Tuotteet (Tag, Nimi, Maara, Kunto, VarastoId)
-                VALUES ($Tag, $Nimi, $Maara, $Kunto, $VarastoId);";
-                insertCmd.Parameters.AddWithValue("$Tag", tag);
-                insertCmd.Parameters.AddWithValue("$Nimi", nimi);
-                insertCmd.Parameters.AddWithValue("$Maara", maara);
-                insertCmd.Parameters.AddWithValue("$Kunto", kunto);
-                insertCmd.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
-                insertCmd.ExecuteNonQuery();
             }
         }
     }
 
-    // Poista tuote tietokannasta.
-    public void PoistaTuote(string Nimi)
+    // Lisää uusi käyttäjä
+    public void AddUser(string username, string password)
     {
         using (var connection = new SqliteConnection(_connectionString))
         {
             connection.Open();
-
-            var deleteItemCmd = connection.CreateCommand();
-            deleteItemCmd.CommandText = @"
-                DELETE FROM Tuotteet
-                WHERE Nimi = $Nimi AND VarastoId = $VarastoId;";
-            deleteItemCmd.Parameters.AddWithValue("$Nimi", Nimi);
-            deleteItemCmd.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
-            deleteItemCmd.ExecuteNonQuery();
-
-            Console.WriteLine("Tuote poistettu varastosta.");
+            using (var cmd = connection.CreateCommand())
+            {
+                // Huom: Käytännössä salasana pitäisi hashata, tässä käytetään salaamatonta tekstiä Program.cs:n takia.
+                cmd.CommandText = "INSERT INTO Users (Username, PasswordHash) VALUES (@Username, @PasswordHash)";
+                cmd.Parameters.AddWithValue("@Username", username);
+                cmd.Parameters.AddWithValue("@PasswordHash", password); 
+                cmd.ExecuteNonQuery();
+            }
         }
     }
 
+    // ----------------------------------------
+    // 🏢 Varastot
+    // ----------------------------------------
 
-    public IResult MuokkaaTuote(int Id, Tuote muokattuTuote)
+    // Tarkista varaston omistajuus
+    private bool CheckVarastoOwnership(int varastoId, int userId)
     {
-        if (currentVarastoId == null)
-            return Results.BadRequest(new { message = "Ei aktiivista varastoa." });
-
         using (var connection = new SqliteConnection(_connectionString))
         {
             connection.Open();
-
-            // korvataan olemassaoleva tuote uudella
-            var updateCmd = connection.CreateCommand();
-            updateCmd.CommandText = @"
-                UPDATE Tuotteet 
-                SET Nimi = $Nimi, Maara = $Maara, Tag = $Tag, Kunto = $Kunto
-                WHERE Id = $Id AND VarastoId = $VarastoId";
-
-            updateCmd.Parameters.AddWithValue("$Id", Id);
-            updateCmd.Parameters.AddWithValue("$Nimi", muokattuTuote.Nimi);
-            updateCmd.Parameters.AddWithValue("$Maara", muokattuTuote.Maara);
-            updateCmd.Parameters.AddWithValue("$Tag", muokattuTuote.Tag);
-            updateCmd.Parameters.AddWithValue("$Kunto", muokattuTuote.Kunto);
-            updateCmd.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
-
-            if (updateCmd.ExecuteNonQuery() == 0)
-                return Results.NotFound(new { message = "Tuotetta ei löytynyt"});
-
-            // Tarkistetaan identtiset tuotteet
-            var mergeCmd = connection.CreateCommand();
-            mergeCmd.CommandText = @"
-                SELECT Id, Maara FROM Tuotteet
-                WHERE Id != $Id AND Nimi = $Nimi AND Tag = $Tag AND Kunto = $Kunto AND VarastoId = $VarastoId
-                LIMIT 1";
-            mergeCmd.Parameters.AddWithValue("$Id", Id);
-            mergeCmd.Parameters.AddWithValue("$Nimi", muokattuTuote.Nimi);
-            mergeCmd.Parameters.AddWithValue("$Tag", muokattuTuote.Tag);
-            mergeCmd.Parameters.AddWithValue("$Kunto", muokattuTuote.Kunto);
-            mergeCmd.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
-
-            int? vanhaId = null;
-            int vanhaMaara = 0;
-
-            using (var mergeReader = mergeCmd.ExecuteReader())
+            using (var cmd = connection.CreateCommand())
             {
-                if (mergeReader.Read())
-                {
-                    vanhaId = mergeReader.GetInt32(0);
-                    vanhaMaara = mergeReader.GetInt32(1);
-                }
+                cmd.CommandText = "SELECT COUNT(*) FROM Varastot WHERE Id = @VarastoId AND UserId = @UserId";
+                cmd.Parameters.AddWithValue("@VarastoId", varastoId);
+                cmd.Parameters.AddWithValue("@UserId", userId);
+                return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
             }
-
-            if (vanhaId.HasValue)
-            {
-                int combinedMaara = vanhaMaara + muokattuTuote.Maara;
-
-                // Update existing row
-                var updateExisting = connection.CreateCommand();
-                updateExisting.CommandText = "UPDATE Tuotteet SET Maara = $Maara WHERE Id = $Id";
-                updateExisting.Parameters.AddWithValue("$Maara", combinedMaara);
-                updateExisting.Parameters.AddWithValue("$Id", vanhaId.Value);
-                updateExisting.ExecuteNonQuery();
-
-                // Delete the edited row
-                var deleteEdited = connection.CreateCommand();
-                deleteEdited.CommandText = "DELETE FROM Tuotteet WHERE Id = $Id";
-                deleteEdited.Parameters.AddWithValue("$Id", Id);
-                deleteEdited.ExecuteNonQuery();
-
-                return Results.Ok(new { message = "Muokattu tuote yhdistetty toiseen tuotteeseen." });
-            }
-
-            return Results.Ok(new { message = "Tuote muokattu onnistuneesti" });
         }
     }
 
-    public List<Tuote> ListaaTuotteet()
+    // Luo uusi varasto (Program.cs vaatii tämän)
+    public int LuoVarasto(string nimi, int userId)
     {
         using (var connection = new SqliteConnection(_connectionString))
         {
             connection.Open();
-
-            // Register Finnish collation (ä, ö, å sorted correctly)
-            connection.CreateCollation(
-                "FINNISH",
-                (x, y) => string.Compare(
-                    x, 
-                    y, 
-                    new CultureInfo("fi-FI"),
-                    CompareOptions.IgnoreCase
-                )
-            );
-
-            var selectTuotteetCmd = connection.CreateCommand();
-            selectTuotteetCmd.CommandText = @"
-                SELECT Id, Tag, Nimi, Maara, Kunto, VarastoId
-                FROM Tuotteet
-                WHERE VarastoId = $VarastoId
-                ORDER BY Nimi COLLATE FINNISH;";
-            selectTuotteetCmd.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
-
-            using (var reader = selectTuotteetCmd.ExecuteReader())
+            using (var addVarasto = connection.CreateCommand())
             {
-                List<Tuote> tuotteet = new List<Tuote>();
-
-                while (reader.Read())
-                {
-                    tuotteet.Add(new Tuote(
-                        reader.GetInt32(0),  // Id
-                        reader.GetString(1), // Tag
-                        reader.GetString(2), // Nimi
-                        reader.GetInt32(3),  // Maara
-                        reader.GetString(4), // Kunto
-                        reader.GetInt32(5)   // VarastoId
-                    ));
-                }
-                return tuotteet;
+                addVarasto.CommandText = "INSERT INTO Varastot (Nimi, UserId) VALUES (@Nimi, @UserId); SELECT last_insert_rowid();";
+                addVarasto.Parameters.AddWithValue("@Nimi", nimi);
+                addVarasto.Parameters.AddWithValue("@UserId", userId);
+                var result = addVarasto.ExecuteScalar();
+                return result != null ? (int)(long)result : throw new InvalidOperationException("Varaston luominen epäonnistui.");
             }
         }
     }
@@ -253,6 +173,9 @@ public class VarastoDB
         {
             var results = new List<Tuote>();
             connection.Open();
+            var cmd = connection.CreateCommand();
+            cmd.CommandText = "SELECT Id, Nimi FROM Varastot WHERE UserId = @UserId";
+            cmd.Parameters.AddWithValue("@UserId", userId);
 
             var searchItemCommand = connection.CreateCommand();
             searchItemCommand.CommandText = $@"
@@ -263,7 +186,7 @@ public class VarastoDB
             searchItemCommand.Parameters.AddWithValue("$Value", value);
             searchItemCommand.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
 
-            using (var reader = searchItemCommand.ExecuteReader())
+            while (reader.Read())
             {
                 while (reader.Read())
                 {
@@ -283,184 +206,199 @@ public class VarastoDB
 }
     public int LuoVarasto(string nimi)
     {
-        if (string.IsNullOrWhiteSpace(nimi))
-            throw new ArgumentException("Varaston nimi ei voi olla tyhjä.", nameof(nimi));
+        if (!CheckVarastoOwnership(varastoId, userId))
+        {
+            return false;
+        }
 
         using (var connection = new SqliteConnection(_connectionString))
         {
             connection.Open();
-
-            // Luodaan Varastot-taulu, jos sitä ei vielä ole
-            using (var createVarasto = connection.CreateCommand())
-            {
-                createVarasto.CommandText = @"
-                    CREATE TABLE IF NOT EXISTS Varastot(
-                        Id INTEGER PRIMARY KEY,
-                        Nimi TEXT
-                    );";
-                createVarasto.ExecuteNonQuery();
-            }
-
-            // Luodaan Tuotteet-taulu, jos sitä ei vielä ole
-            using (var createTuotteetTableCmd = connection.CreateCommand())
-            {
-                createTuotteetTableCmd.CommandText = @"
-                    CREATE TABLE IF NOT EXISTS Tuotteet (
-                        Id INTEGER PRIMARY KEY,
-                        Tag TEXT,
-                        Nimi TEXT,
-                        Maara INTEGER,
-                        Kunto TEXT,
-                        VarastoId INTEGER,
-                        FOREIGN KEY(VarastoId) REFERENCES Varastot(Id) ON DELETE CASCADE
-                    );";
-                createTuotteetTableCmd.ExecuteNonQuery();
-            }
-
-            // Lisätään uusi varasto Varastot-tauluun ja haetaan sen ID
-            using (var addVarasto = connection.CreateCommand())
-            {
-                addVarasto.CommandText = "INSERT INTO Varastot (Nimi) VALUES (@Nimi); SELECT last_insert_rowid();";
-                addVarasto.Parameters.AddWithValue("@Nimi", nimi);
-                long uusiVarastoId = (long)addVarasto.ExecuteScalar();
-
-                currentVarastoId = (int)uusiVarastoId; // asetetaan aktiiviseksi
-                Console.WriteLine($"Uusi varasto '{nimi}' luotu ja valittu. ID = {currentVarastoId}");
-
-                return currentVarastoId.Value;
-            }
+            var deleteCmd = connection.CreateCommand();
+            deleteCmd.CommandText = "DELETE FROM Varastot WHERE Id = @Id AND UserId = @UserId";
+            deleteCmd.Parameters.AddWithValue("@Id", varastoId);
+            deleteCmd.Parameters.AddWithValue("@UserId", userId);
+            
+            // Tuotteet poistuvat automaattisesti FOREIGN KEY CASCADE:n ansiosta
+            return deleteCmd.ExecuteNonQuery() > 0;
         }
     }
 
-    public object? HaeAktiivinenVarasto()
-    {
-        if (currentVarastoId == null)
-            return null;
+    // ----------------------------------------
+    // 📦 Tuotteet
+    // ----------------------------------------
 
+    // Hae tuotteet varastosta (Program.cs vaatii tämän)
+    public List<Tuote> HaeTuotteet(int varastoId, int userId)
+    {
+        if (!CheckVarastoOwnership(varastoId, userId))
+        {
+            throw new UnauthorizedAccessException("Käyttäjällä ei ole oikeutta tähän varastoon.");
+        }
+
+        var tuotteet = new List<Tuote>();
         using (var connection = new SqliteConnection(_connectionString))
         {
             connection.Open();
+            var cmd = connection.CreateCommand();
+            cmd.CommandText = @"
+                SELECT Tag, Nimi, Maara, Kunto 
+                FROM Tuotteet 
+                WHERE VarastoId = @VarastoId";
+            cmd.Parameters.AddWithValue("@VarastoId", varastoId);
 
-            using (var command = connection.CreateCommand())
+            using (var reader = cmd.ExecuteReader())
             {
-                command.CommandText = "SELECT Id, Nimi FROM Varastot WHERE Id = @id";
-                command.Parameters.AddWithValue("@id", currentVarastoId);
-
-                using (var reader = command.ExecuteReader())
+                while (reader.Read())
                 {
-                    if (reader.Read())
-                    {
-                        return new
-                        {
-                            Id = reader.GetInt32(0),
-                            Nimi = reader.GetString(1)
-                        };
-                    }
+                    tuotteet.Add(new Tuote(
+                        reader.IsDBNull(0) ? "" : reader.GetString(0),
+                        reader.GetString(1),
+                        reader.GetInt32(2),
+                        reader.IsDBNull(3) ? "" : reader.GetString(3)));
                 }
             }
         }
-
-        return null;
+        return tuotteet;
     }
 
-
-    public List<VarastoTiedot> HaeVarastot()
+    // Lisää tai päivitä tuote (Program.cs vaatii tämän)
+    public void LisaaTaiPaivitaTuote(int varastoId, Tuote tuote, int userId)
     {
+        if (!CheckVarastoOwnership(varastoId, userId))
+        {
+            throw new UnauthorizedAccessException("Käyttäjällä ei ole oikeutta tähän varastoon.");
+        }
+
         using (var connection = new SqliteConnection(_connectionString))
         {
             connection.Open();
 
-            var cmd = connection.CreateCommand();
-            cmd.CommandText = "SELECT Id, Nimi FROM Varastot";
-
-            var varastot = new List<VarastoTiedot>();
-            using var reader = cmd.ExecuteReader();
-
-            while (reader.Read())
+            // 1. Yritä päivittää olemassa oleva tuote (Tag, Nimi, Kunto match)
+            using (var checkCmd = connection.CreateCommand())
             {
-                varastot.Add(new VarastoTiedot(reader.GetInt32(0), reader.GetString(1)));
+                checkCmd.CommandText = @"
+                SELECT Id, Maara
+                FROM Tuotteet
+                WHERE Tag = @Tag AND Nimi = @Nimi AND Kunto = @Kunto AND VarastoId = @VarastoId
+                LIMIT 1;";
+                checkCmd.Parameters.AddWithValue("@Tag", tuote.tag);
+                checkCmd.Parameters.AddWithValue("@Nimi", tuote.nimi);
+                checkCmd.Parameters.AddWithValue("@Kunto", tuote.kunto);
+                checkCmd.Parameters.AddWithValue("@VarastoId", varastoId);
+
+                using (var reader = checkCmd.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        int id = reader.GetInt32(0);
+                        int oldMaara = reader.GetInt32(1);
+                        int newMaara = oldMaara + tuote.maara;
+
+                        reader.Close();
+
+                        using (var updateCmd = connection.CreateCommand())
+                        {
+                            updateCmd.CommandText = "UPDATE Tuotteet SET Maara = @Maara WHERE Id = @Id";
+                            updateCmd.Parameters.AddWithValue("@Maara", newMaara);
+                            updateCmd.Parameters.AddWithValue("@Id", id);
+                            updateCmd.ExecuteNonQuery();
+                        }
+                        return;
+                    }
+                }
             }
 
-            return varastot;
+            // 2. Lisää uusi tuote.
+            using (var insertCmd = connection.CreateCommand())
+            {
+                insertCmd.CommandText = @"
+                INSERT INTO Tuotteet (Tag, Nimi, Maara, Kunto, VarastoId)
+                VALUES (@Tag, @Nimi, @Maara, @Kunto, @VarastoId);";
+                insertCmd.Parameters.AddWithValue("@Tag", tuote.tag);
+                insertCmd.Parameters.AddWithValue("@Nimi", tuote.nimi);
+                insertCmd.Parameters.AddWithValue("@Maara", tuote.maara);
+                insertCmd.Parameters.AddWithValue("@Kunto", tuote.kunto);
+                insertCmd.Parameters.AddWithValue("@VarastoId", varastoId);
+                insertCmd.ExecuteNonQuery();
+            }
         }
     }
-
-    public bool PoistaVarasto(int varastoId)
+    
+    // Muokkaa tuotetta ID:n perusteella (Program.cs vaatii tämän)
+    public bool MuokkaaTuote(int tuoteId, int varastoId, Tuote tuote, int userId)
     {
+        if (!CheckVarastoOwnership(varastoId, userId))
+        {
+            throw new UnauthorizedAccessException("Käyttäjällä ei ole oikeutta tähän varastoon.");
+        }
+
         using (var connection = new SqliteConnection(_connectionString))
         {
             connection.Open();
 
-            // Tarkistetaan, että varasto on olemassa
-            var checkCmd = connection.CreateCommand();
-            checkCmd.CommandText = "SELECT COUNT(*) FROM Varastot WHERE Id = $Id";
-            checkCmd.Parameters.AddWithValue("$Id", varastoId);
-            int count = Convert.ToInt32(checkCmd.ExecuteScalar());
+            var updateCmd = connection.CreateCommand();
+            updateCmd.CommandText = @"
+                UPDATE Tuotteet 
+                SET Nimi = @Nimi, Maara = @Maara, Tag = @Tag, Kunto = @Kunto
+                WHERE Id = @TuoteId AND VarastoId = @VarastoId";
 
-            if (count == 0)
-            {
-                Console.WriteLine("Varastoa ei löytynyt.");
-                return false;
-            }
+            updateCmd.Parameters.AddWithValue("@TuoteId", tuoteId);
+            updateCmd.Parameters.AddWithValue("@Nimi", tuote.nimi);
+            updateCmd.Parameters.AddWithValue("@Maara", tuote.maara);
+            updateCmd.Parameters.AddWithValue("@Tag", tuote.tag);
+            updateCmd.Parameters.AddWithValue("@Kunto", tuote.kunto);
+            updateCmd.Parameters.AddWithValue("@VarastoId", varastoId);
 
-            // Poistetaan varasto (Tuotteet poistuvat automaattisesti FOREIGN KEY CASCADE:n ansiosta)
-            var deleteCmd = connection.CreateCommand();
-            deleteCmd.CommandText = "DELETE FROM Varastot WHERE Id = $Id";
-            deleteCmd.Parameters.AddWithValue("$Id", varastoId);
-            int rowsAffected = deleteCmd.ExecuteNonQuery();
-
-            if (rowsAffected > 0)
-            {
-                if (currentVarastoId == varastoId)
-                    currentVarastoId = null; // nollataan aktiivinen varasto
-
-                Console.WriteLine($"Varasto {varastoId} poistettu onnistuneesti.");
-                return true;
-            }
-            else
-            {
-                Console.WriteLine("Varaston poisto epäonnistui.");
-                return false;
-            }
+            return updateCmd.ExecuteNonQuery() > 0;
         }
     }
 
-    //muokka nimeä
-    public IResult MuokkaaVarastoNimi(int id, string uusiNimi)
+    // Poista tuote ID:n perusteella (Program.cs vaatii tämän)
+    public bool PoistaTuote(int tuoteId, int varastoId, int userId)
     {
-        using var connection = new SqliteConnection(_connectionString);
-        connection.Open();
+        if (!CheckVarastoOwnership(varastoId, userId))
+        {
+            throw new UnauthorizedAccessException("Käyttäjällä ei ole oikeutta tähän varastoon.");
+        }
+        
+        using (var connection = new SqliteConnection(_connectionString))
+        {
+            connection.Open();
 
-        var cmd = connection.CreateCommand();
-        cmd.CommandText = @"UPDATE Varastot SET Nimi = $Nimi WHERE Id = $Id";
-        cmd.Parameters.AddWithValue("$Nimi", uusiNimi);
-        cmd.Parameters.AddWithValue("$Id", id);
+            var komento = connection.CreateCommand();
+            komento.CommandText = "DELETE FROM Tuotteet WHERE Id = @Id AND VarastoId = @VarastoId";
+            komento.Parameters.AddWithValue("@Id", tuoteId);
+            komento.Parameters.AddWithValue("@VarastoId", varastoId);
 
-        int rows = cmd.ExecuteNonQuery();
-        if (rows == 0)
-            return Results.NotFound(new { message = "Varastoa ei löytynyt" });
-
-        return Results.Ok(new { message = "Varaston nimi päivitetty" });
+            return komento.ExecuteNonQuery() > 0;
+        }
     }
+    
+    // Poista tuote/tuotteet NIMEN perusteella (Program.cs vaatii tämän)
+    public void PoistaTuote(string nimi, int varastoId, int userId) 
+    { 
+        if (!CheckVarastoOwnership(varastoId, userId))
+        {
+            throw new UnauthorizedAccessException("Käyttäjällä ei ole oikeutta tähän varastoon.");
+        }
 
-    public bool PoistaTuote(int id)
-    {
-        using var yhteys = new SqliteConnection(_connectionString);
-        yhteys.Open();
+        using (var connection = new SqliteConnection(_connectionString))
+        {
+            connection.Open();
+            var deleteItemCmd = connection.CreateCommand();
+            deleteItemCmd.CommandText = @"
+                DELETE FROM Tuotteet
+                WHERE Nimi = @Nimi AND VarastoId = @VarastoId;";
+            deleteItemCmd.Parameters.AddWithValue("@Nimi", nimi);
+            deleteItemCmd.Parameters.AddWithValue("@VarastoId", varastoId);
+            
+            if (deleteItemCmd.ExecuteNonQuery() == 0)
+            {
+                 throw new KeyNotFoundException($"Tuotetta nimeltä '{nimi}' ei löytynyt varastosta {varastoId}.");
+            }
 
-        var komento = yhteys.CreateCommand();
-        komento.CommandText = "DELETE FROM Tuotteet WHERE id = $id";
-        komento.Parameters.AddWithValue("$id", id);
-
-        int rivit = komento.ExecuteNonQuery();
-        return rivit > 0; // True jos poistettiin vähintään yksi rivi
-    }
-
-    // (Valinnaisesti: setter aktiiviselle varastolle)
-    public void AsetaAktiivinenVarasto(int varastoId)
-    {
-        currentVarastoId = varastoId;
+            Console.WriteLine($"[DB] Poistettiin tuote(et) nimeltä '{nimi}' varastosta {varastoId} (käyttäjä {userId})"); 
+        }
     }
 }
-
-

@@ -3,8 +3,8 @@ import 'package:http/http.dart' as http;
 import '../models/varasto.dart';
 import '../models/tuote.dart' as tuote_model;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class ApiService {
+
   static String get baseUrl {
     //final host = html.window.location.hostname; // gets the current IP/host
     return 'http://10.83.16.38:5000';       ///   PUT YOUR OWN IP
@@ -49,6 +49,19 @@ class ApiService {
 
     final data = jsonDecode(res.body) as List<dynamic>;
     return data.map((e) => tuote_model.Tuote.fromJson(e)).toList();
+  }
+
+  // Poistaa varaston.
+  Future<String> deleteCollection(int id) async {
+    final response = await http.delete(Uri.parse("$baseUrl/varasto/$id"));
+
+    if (response.statusCode == 200) {
+      return response.body;
+    } 
+    
+    else {
+      throw Exception("Delete failed: ${response.statusCode}");
+    }
   }
 
   //päivittää varaston nimeä
