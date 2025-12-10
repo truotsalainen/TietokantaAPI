@@ -194,15 +194,12 @@ app.MapPut("/varastot/{varastoId}/tuotteet/{tuoteId}", [Authorize] (HttpContext 
         int userId = GetUserId(ctx);
         bool ok = db.MuokkaaTuote(tuoteId, varastoId, tuote, userId);
 
-        return ok
-            ? Results.Ok("Tuote päivitetty.")
-            : Results.NotFound("Tuotetta ei löytynyt.");
-    }
-    catch (UnauthorizedAccessException)
-    {
-        return Results.Unauthorized();
-    }
-});
+        //Etsi tuotteet
+        app.MapGet("/etsituotteet", (string column, string value) =>
+        {
+            var results = Varasto.EtsiTuotteet(column, value);
+            return Results.Ok(results);
+        });
 
 app.MapDelete("/varastot/{varastoId}/tuotteet/{tuoteId}", [Authorize] (HttpContext ctx, VarastoDB db, int varastoId, int tuoteId) =>
 {

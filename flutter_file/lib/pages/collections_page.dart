@@ -7,6 +7,7 @@ import 'create_collection_page.dart';
 import 'edit_collection_page.dart';
 import 'delete_collection_page.dart';
 
+
 class CollectionsPage extends StatefulWidget {
   const CollectionsPage({super.key});
 
@@ -49,6 +50,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
       );
     }
   }
+  
 
   @override
   Widget build(BuildContext context) {
@@ -100,13 +102,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
                 runSpacing: 10,
                 alignment: WrapAlignment.center,
                 children: [
-                  // Search button stays as before
-                  ElevatedButton(
-                    onPressed: () {
-                      // TODO: implement search functionality
-                    },
-                    child: const Text("Search"),
-                  ),
+                
 
                   // New Collection always enabled
                   _buildNavButton(context, "New Collection", const CreateCollectionPage()),

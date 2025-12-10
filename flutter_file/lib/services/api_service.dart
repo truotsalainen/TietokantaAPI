@@ -10,6 +10,7 @@ import '../models/tuote.dart' as tuote_model;
 // Huomio: JWT-token tulee tallentaa secure_storagen (tai muun turvallisuus-ratkaisun) avulla.
 // Tällä hetkellä yksinkertaisesti muuttujassa.
 class ApiService {
+
   static String get baseUrl {
     // Windows / Web: localhost:5154
     // Android emulator: 10.0.2.2:5154
@@ -227,5 +228,37 @@ class ApiService {
       return false;
     }
   }
+  //search items
+  static Future<List<tuote_model.Tuote>> searchItems({
+  required String column,
+  required String value,
+  }) async {
+    final url = Uri.parse('$baseUrl/etsituotteet?column=$column&value=$value');
+    print("SEARCH URL: $url");
+
+    final response = await http.get(url);
+
+    print("SEARCH STATUS: ${response.statusCode}");
+    print("SEARCH RAW RESPONSE: ${response.body}");
+
+    if (response.statusCode != 200) {
+      throw Exception("Server error ${response.statusCode}: ${response.body}");
+    }
+
+    final decoded = jsonDecode(response.body);
+
+    if (decoded is! List) {
+      throw Exception("Invalid response: expected a list, got: $decoded");
+    }
+
+    final List list = decoded;
+
+    // Validate each item is a Map
+    return list.where((item) => item is Map<String, dynamic>).map<tuote_model.Tuote>((item) {
+      return tuote_model.Tuote.fromJson(item);
+    }).toList();
+  }
+
+
 
 }
