@@ -99,7 +99,6 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-<<<<<<< Updated upstream
   html:
     dependency: transitive
     description:
@@ -108,8 +107,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.15.6"
-=======
->>>>>>> Stashed changes
   http:
     dependency: "direct main"
     description:
@@ -267,7 +264,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
-<<<<<<< Updated upstream
   universal_html:
     dependency: "direct main"
     description:
@@ -284,8 +280,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.3.1"
-=======
->>>>>>> Stashed changes
   vector_math:
     dependency: transitive
     description:

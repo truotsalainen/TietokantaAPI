@@ -76,7 +76,6 @@ class _CollectionsPageState extends State<CollectionsPage> {
                                 setState(() => selectedCollection = v);
 
                                 try {
-                                  await ApiService.setActiveWarehouse(v.id);
                                   if (!mounted) return;
                                   appState.selectWarehouse(v.id, v.nimi);
                                   ScaffoldMessenger.of(context).showSnackBar(
