@@ -167,29 +167,44 @@ public class VarastoDB
         }
     }
 
-    // Hae käyttäjän kaikki varastot (Program.cs vaatii tämän)
-    public List<VarastoTiedot> GetVarastot(int userId)
+    public List<Tuote> EtsiTuotteet(string column, string value)
     {
         using (var connection = new SqliteConnection(_connectionString))
         {
+            var results = new List<Tuote>();
             connection.Open();
             var cmd = connection.CreateCommand();
             cmd.CommandText = "SELECT Id, Nimi FROM Varastot WHERE UserId = @UserId";
             cmd.Parameters.AddWithValue("@UserId", userId);
 
-            var varastot = new List<VarastoTiedot>();
-            using var reader = cmd.ExecuteReader();
+            var searchItemCommand = connection.CreateCommand();
+            searchItemCommand.CommandText = $@"
+                SELECT Id, Nimi, Tag, Kunto, Maara, VarastoId
+                FROM Tuotteet
+                WHERE LOWER({column}) = LOWER($Value)
+                AND VarastoId = $VarastoId;";
+            searchItemCommand.Parameters.AddWithValue("$Value", value);
+            searchItemCommand.Parameters.AddWithValue("$VarastoId", currentVarastoId.Value);
 
             while (reader.Read())
             {
-                varastot.Add(new VarastoTiedot(reader.GetInt32(0), reader.GetString(1)));
+                while (reader.Read())
+                {
+                    results.Add(new Tuote(
+                        reader.GetInt32(0),  // Id
+                        reader.GetString(2), // Tag
+                        reader.GetString(1), // Nimi
+                        reader.GetInt32(4),  // Maara
+                        reader.GetString(3), // Kunto
+                        reader.GetInt32(5)   // VarastoId
+                    ));
+                }
             }
-            return varastot;
-        }
-    }
 
-    // Poista varasto (Program.cs vaatii tämän)
-    public bool PoistaVarasto(int varastoId, int userId)
+            return results;
+        }
+}
+    public int LuoVarasto(string nimi)
     {
         if (!CheckVarastoOwnership(varastoId, userId))
         {

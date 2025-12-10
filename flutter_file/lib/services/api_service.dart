@@ -6,8 +6,8 @@ import '../models/tuote.dart' as tuote_model;
 class ApiService {
 
   static String get baseUrl {
-
-    return 'http://127.0.0.1:5000';
+    //final host = html.window.location.hostname; // gets the current IP/host
+    return 'http://10.83.16.38:5000';       ///   PUT YOUR OWN IP
   }
 
   static Future<List<Varasto>> getWarehouses() async {
@@ -74,5 +74,37 @@ class ApiService {
 
     return response.statusCode == 200;
   }
+  //search items
+  static Future<List<tuote_model.Tuote>> searchItems({
+  required String column,
+  required String value,
+  }) async {
+    final url = Uri.parse('$baseUrl/etsituotteet?column=$column&value=$value');
+    print("SEARCH URL: $url");
+
+    final response = await http.get(url);
+
+    print("SEARCH STATUS: ${response.statusCode}");
+    print("SEARCH RAW RESPONSE: ${response.body}");
+
+    if (response.statusCode != 200) {
+      throw Exception("Server error ${response.statusCode}: ${response.body}");
+    }
+
+    final decoded = jsonDecode(response.body);
+
+    if (decoded is! List) {
+      throw Exception("Invalid response: expected a list, got: $decoded");
+    }
+
+    final List list = decoded;
+
+    // Validate each item is a Map
+    return list.where((item) => item is Map<String, dynamic>).map<tuote_model.Tuote>((item) {
+      return tuote_model.Tuote.fromJson(item);
+    }).toList();
+  }
+
+
 
 }

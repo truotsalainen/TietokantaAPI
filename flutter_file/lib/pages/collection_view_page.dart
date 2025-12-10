@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 import '../models/varasto.dart';
+import 'search_page.dart';
 
 class CollectionViewPage extends StatelessWidget {
   final Varasto collection;
 
   const CollectionViewPage({super.key, required this.collection});
+  
+  void runSearch(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SearchPage()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +42,11 @@ class CollectionViewPage extends StatelessWidget {
               spacing: 10,
               runSpacing: 10,
               children: [
-                ElevatedButton(onPressed: () {}, child: const Text('Search')),
+                ElevatedButton(
+                  onPressed: () => runSearch(context),
+                  child: const Text("Search"),
+                ),
+
               ],
             ),
           ],
