@@ -11,8 +11,10 @@ import '../models/tuote.dart' as tuote_model;
 // Tällä hetkellä yksinkertaisesti muuttujassa.
 class ApiService {
   static String get baseUrl {
-    // Korvaa IP-osoite omallasi. Esim. localhost:5000, 192.168.1.100:5000, jne.
-    return 'http://192.168.x.xxx:5000'; // PUT YOUR OWN IP
+    // Windows / Web: localhost:5154
+    // Android emulator: 10.0.2.2:5154
+    // Fyysinen laite verkossa: 192.168.x.x:5154
+    return 'http://localhost:5154';
   }
 
   // JWT-token tallennetaan muistiin kirjautumisen jälkeen

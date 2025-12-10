@@ -58,7 +58,8 @@ public class VarastoDB
                     CREATE TABLE IF NOT EXISTS Users(
                         Id INTEGER PRIMARY KEY,
                         Username TEXT UNIQUE NOT NULL,
-                        PasswordHash TEXT NOT NULL
+                        PasswordHash TEXT NOT NULL,
+                        IsAdmin INTEGER NOT NULL DEFAULT 0
                     );";
                 createUsers.ExecuteNonQuery();
             }
@@ -90,6 +91,32 @@ public class VarastoDB
                         FOREIGN KEY(VarastoId) REFERENCES Varastot(Id) ON DELETE CASCADE
                     );";
                 createTuotteetTableCmd.ExecuteNonQuery();
+            }
+
+            // Siemenen data: Luo vakio-admin jos Users-taulu on tyhjä
+            using (var checkUsersCmd = connection.CreateCommand())
+            {
+                checkUsersCmd.CommandText = "SELECT COUNT(*) FROM Users;";
+                var count = (long?)checkUsersCmd.ExecuteScalar() ?? 0;
+
+                if (count == 0)
+                {
+                    // Luo admin-käyttäjä ja tallenna hashattu salasana
+                    // BCrypt hash: admin123 (tuotetussa ympäristössä muuta tämä)
+                    var adminPasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123");
+                    
+                    using (var seedCmd = connection.CreateCommand())
+                    {
+                        seedCmd.CommandText = @"
+                            INSERT INTO Users (Username, PasswordHash, IsAdmin)
+                            VALUES (@Username, @PasswordHash, @IsAdmin);";
+                        seedCmd.Parameters.AddWithValue("@Username", "admin");
+                        seedCmd.Parameters.AddWithValue("@PasswordHash", adminPasswordHash);
+                        seedCmd.Parameters.AddWithValue("@IsAdmin", 1);
+                        seedCmd.ExecuteNonQuery();
+                    }
+                    Console.WriteLine("✓ Admin-käyttäjä luotu: admin / admin123");
+                }
             }
         }
     }
@@ -129,7 +156,7 @@ public class VarastoDB
     // Huom: metodi vastaanottaa valmiiksi hashatun salasanan (`passwordHash`).
     // Hashaaminen tehdään korkeammalla tasolla (esim. AuthService), älä tallenna raakatekstiä.
     // Heittää poikkeuksen, jos käyttäjänimi rikkoo UNIQUE-rajoitetta.
-    public void AddUser(string username, string passwordHash)
+    public void AddUser(string username, string passwordHash, bool isAdmin = false)
     {
         using (var connection = new SqliteConnection(_connectionString))
         {
@@ -137,18 +164,17 @@ public class VarastoDB
             using (var cmd = connection.CreateCommand())
             {
                 // Tallenna vastaanotettu (hashattu) salasana turvallisesti.
-                cmd.CommandText = "INSERT INTO Users (Username, PasswordHash) VALUES (@Username, @PasswordHash)";
+                cmd.CommandText = "INSERT INTO Users (Username, PasswordHash, IsAdmin) VALUES (@Username, @PasswordHash, @IsAdmin)";
                 cmd.Parameters.AddWithValue("@Username", username);
                 cmd.Parameters.AddWithValue("@PasswordHash", passwordHash);
+                cmd.Parameters.AddWithValue("@IsAdmin", isAdmin ? 1 : 0);
                 cmd.ExecuteNonQuery();
             }
         }
     }
 
     // Tarkista onko käyttäjä admin
-    // Huom: Alkuperäisessä yksinkertaisessa toteutuksessa ei ole IsAdmin-saraketta,
-    // joten päätellään admin-oikeus tällä hetkellä käyttäjänimen perusteella ("admin")
-    // tai oletetaan ensimmäinen käyttäjä (Id==1) adminiksi. Tätä voi laajentaa lisämerkinnällä.
+    // Lukee IsAdmin-sarakkeen arvon suoraan tietokannasta
     public bool IsUserAdmin(int userId)
     {
         using (var connection = new SqliteConnection(_connectionString))
@@ -156,12 +182,11 @@ public class VarastoDB
             connection.Open();
             using (var cmd = connection.CreateCommand())
             {
-                cmd.CommandText = "SELECT Username FROM Users WHERE Id = @Id LIMIT 1";
+                cmd.CommandText = "SELECT IsAdmin FROM Users WHERE Id = @Id LIMIT 1";
                 cmd.Parameters.AddWithValue("@Id", userId);
                 var result = cmd.ExecuteScalar();
                 if (result == null) return false;
-                var username = Convert.ToString(result) ?? string.Empty;
-                return username.Equals("admin", StringComparison.OrdinalIgnoreCase) || userId == 1;
+                return Convert.ToInt32(result) != 0;
             }
         }
     }

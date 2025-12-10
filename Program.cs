@@ -26,11 +26,9 @@ builder.Services.AddSingleton<JwtService>();
 // ========================================
 // 🛢️ TIETOKANNAN REKISTERÖINTI
 // ========================================
-builder.Services.AddSingleton(sp =>
-{
-    string dbPath = Path.Combine(AppContext.BaseDirectory, "varasto.db");
-    return new VarastoDB(dbPath);
-});
+var dbPath = Path.Combine(AppContext.BaseDirectory, "varasto.db");
+var db = new VarastoDB(dbPath);
+builder.Services.AddSingleton(db);
 
 // ========================================
 // 🔑 JWT-KONFIGURAATIO
